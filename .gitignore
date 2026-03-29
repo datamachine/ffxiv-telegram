@@ -1,0 +1,12 @@
+.idea/
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.log
+TestResults/
+packages/
+artifacts/
+publish/
+*.nupkg

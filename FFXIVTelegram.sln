@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FFXIVTelegram", "src\FFXIVTelegram\FFXIVTelegram.csproj", "{F33D86EE-5C56-48D4-84A2-C44DADAF1C2C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FFXIVTelegram.Tests", "tests\FFXIVTelegram.Tests\FFXIVTelegram.Tests.csproj", "{21EED3EB-2C1B-4C5C-A47C-DA4166F871AD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F33D86EE-5C56-48D4-84A2-C44DADAF1C2C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F33D86EE-5C56-48D4-84A2-C44DADAF1C2C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F33D86EE-5C56-48D4-84A2-C44DADAF1C2C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F33D86EE-5C56-48D4-84A2-C44DADAF1C2C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{21EED3EB-2C1B-4C5C-A47C-DA4166F871AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21EED3EB-2C1B-4C5C-A47C-DA4166F871AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21EED3EB-2C1B-4C5C-A47C-DA4166F871AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21EED3EB-2C1B-4C5C-A47C-DA4166F871AD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
