@@ -13,8 +13,23 @@ public sealed class RouteResolver
     {
         ArgumentNullException.ThrowIfNull(text);
 
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return RouteResolution.Failure("Route could not be resolved.");
+        }
+
         if (this.tagParser.TryParse(text, lastActiveRoute, out var tagged))
         {
+            if (!tagged.IsSuccess)
+            {
+                return tagged;
+            }
+
+            if (string.IsNullOrWhiteSpace(tagged.MessageText))
+            {
+                return RouteResolution.Failure("Route could not be resolved.");
+            }
+
             return tagged;
         }
 
