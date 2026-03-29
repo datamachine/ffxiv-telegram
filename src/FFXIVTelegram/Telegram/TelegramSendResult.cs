@@ -1,15 +1,15 @@
 namespace FFXIVTelegram.Telegram;
 
-public sealed record TelegramSendResult(bool Success, string? ErrorMessage = null)
+public sealed record TelegramSendResult(bool Success, long? MessageId = null, string? ErrorMessage = null)
 {
-    public static TelegramSendResult Ok()
+    public static TelegramSendResult Ok(long messageId)
     {
-        return new TelegramSendResult(true);
+        return new TelegramSendResult(true, messageId);
     }
 
     public static TelegramSendResult Failure(string errorMessage)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
-        return new TelegramSendResult(false, errorMessage);
+        return new TelegramSendResult(false, null, errorMessage);
     }
 }

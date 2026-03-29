@@ -24,27 +24,36 @@ public sealed class TelegramBridgeService
 
     public TelegramConnectionState ConnectionState { get; private set; }
 
-    public async Task PollOnceAsync(CancellationToken cancellationToken)
+    public async Task<TelegramPollResult> PollOnceAsync(CancellationToken cancellationToken)
     {
         if (!this.Configuration.HasTelegramBotToken)
         {
             this.ConnectionState = TelegramConnectionState.NotConfigured;
-            return;
+            return TelegramPollResult.Empty(this.nextUpdateOffset);
         }
 
         try
         {
             var updates = await this.clientAdapter.GetUpdatesAsync(this.nextUpdateOffset, cancellationToken).ConfigureAwait(false);
+            var acceptedMessages = new List<TelegramInboundMessage>();
+
             foreach (var update in updates)
             {
+                var inbound = await this.HandleIncomingUpdateAsync(update, cancellationToken).ConfigureAwait(false);
                 this.nextUpdateOffset = Math.Max(this.nextUpdateOffset, update.UpdateId + 1);
-                if (update.Text is not null)
+
+                if (inbound is not null)
                 {
-                    await this.HandleIncomingTextAsync(update.ChatId, update.IsPrivateChat, update.Text, cancellationToken).ConfigureAwait(false);
+                    acceptedMessages.Add(inbound);
                 }
             }
 
             this.ConnectionState = this.ResolveConnectionState(this.Configuration);
+            return new TelegramPollResult(this.nextUpdateOffset, acceptedMessages);
+        }
+        catch (OperationCanceledException)
+        {
+            return TelegramPollResult.Empty(this.nextUpdateOffset);
         }
         catch
         {
@@ -111,6 +120,23 @@ public sealed class TelegramBridgeService
         }
 
         return await this.clientAdapter.SendTextAsync(chatId.Value, text, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<TelegramInboundMessage?> HandleIncomingUpdateAsync(TelegramUpdate update, CancellationToken cancellationToken)
+    {
+        var inboundResult = await this.HandleIncomingTextAsync(update.ChatId, update.IsPrivateChat, update.Text ?? string.Empty, cancellationToken).ConfigureAwait(false);
+        if (inboundResult != TelegramInboundResult.Accepted)
+        {
+            return null;
+        }
+
+        return new TelegramInboundMessage(
+            update.UpdateId,
+            update.MessageId,
+            update.ReplyToMessageId,
+            update.ChatId,
+            update.IsPrivateChat,
+            update.Text ?? string.Empty);
     }
 
     private TelegramConnectionState ResolveConnectionState(FfxivTelegramConfiguration configuration)
