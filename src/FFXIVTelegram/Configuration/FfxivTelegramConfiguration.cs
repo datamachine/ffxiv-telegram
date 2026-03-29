@@ -8,7 +8,11 @@ public sealed class FfxivTelegramConfiguration : IPluginConfiguration
 
     public string TelegramBotToken { get; set; } = string.Empty;
 
+    public bool HasTelegramBotToken => !string.IsNullOrWhiteSpace(this.TelegramBotToken);
+
     public long? AuthorizedChatId { get; set; }
+
+    public bool HasAuthorizedChat => this.AuthorizedChatId.HasValue;
 
     public bool EnableTellForwarding { get; set; } = true;
 
