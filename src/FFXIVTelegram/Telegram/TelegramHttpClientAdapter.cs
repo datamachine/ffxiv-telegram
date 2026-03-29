@@ -28,12 +28,17 @@ internal sealed class TelegramHttpClientAdapter : ITelegramClientAdapter, IDispo
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!this.configuration.HasTelegramBotToken)
+        string token;
+        lock (this.configuration)
         {
-            return Array.Empty<TelegramUpdate>();
+            if (string.IsNullOrWhiteSpace(this.configuration.TelegramBotToken))
+            {
+                return Array.Empty<TelegramUpdate>();
+            }
+
+            token = Uri.EscapeDataString(this.configuration.TelegramBotToken);
         }
 
-        var token = Uri.EscapeDataString(this.configuration.TelegramBotToken);
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"bot{token}/getUpdates?offset={offset.ToString(CultureInfo.InvariantCulture)}&timeout=30");
@@ -110,12 +115,17 @@ internal sealed class TelegramHttpClientAdapter : ITelegramClientAdapter, IDispo
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        if (!this.configuration.HasTelegramBotToken)
+        string token;
+        lock (this.configuration)
         {
-            return TelegramSendResult.Failure("bot token not configured");
+            if (string.IsNullOrWhiteSpace(this.configuration.TelegramBotToken))
+            {
+                return TelegramSendResult.Failure("bot token not configured");
+            }
+
+            token = Uri.EscapeDataString(this.configuration.TelegramBotToken);
         }
 
-        var token = Uri.EscapeDataString(this.configuration.TelegramBotToken);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
             $"bot{token}/sendMessage")

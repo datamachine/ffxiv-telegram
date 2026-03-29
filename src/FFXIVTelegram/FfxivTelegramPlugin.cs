@@ -14,6 +14,7 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
 {
     private static readonly TimeSpan PollingIdleDelay = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan PollingErrorDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan PollingShutdownTimeout = TimeSpan.FromSeconds(5);
 
     private readonly CommandHandler commandHandler;
     private readonly TelegramBridgeService telegramBridge;
@@ -63,13 +64,7 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
     public void Dispose()
     {
         this.shutdownTokenSource.Cancel();
-        try
-        {
-            this.pollingTask.GetAwaiter().GetResult();
-        }
-        catch (OperationCanceledException)
-        {
-        }
+        _ = WaitForPollingShutdown(this.pollingTask, PollingShutdownTimeout);
 
         this.shutdownTokenSource.Dispose();
         this.commandHandler.Dispose();
@@ -77,6 +72,25 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
         this.chatInjectionService.Dispose();
         this.telegramClientAdapter.Dispose();
         this.uiController.Dispose();
+    }
+
+    internal static bool WaitForPollingShutdown(Task pollingTask, TimeSpan timeout)
+    {
+        ArgumentNullException.ThrowIfNull(pollingTask);
+
+        try
+        {
+            pollingTask.Wait(timeout);
+            return pollingTask.IsCompleted;
+        }
+        catch (AggregateException exception) when (exception.InnerExceptions.All(inner => inner is OperationCanceledException))
+        {
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return true;
+        }
     }
 
     private async Task RunPollingLoopAsync(CancellationToken cancellationToken)

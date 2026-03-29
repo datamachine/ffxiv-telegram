@@ -349,6 +349,48 @@ public sealed class TelegramBridgeServiceTests
         Assert.Equal(new[] { 0L }, fixture.Adapter.RequestedOffsets);
     }
 
+    [Fact]
+    public async Task ConcurrentPollOnceCallsAreSerialized()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42);
+        var firstEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var adapterCallCount = 0;
+
+        fixture.Adapter.OnGetUpdatesAsync = async (_, _) =>
+        {
+            var callNumber = Interlocked.Increment(ref adapterCallCount);
+            if (callNumber == 1)
+            {
+                firstEntered.SetResult();
+                await releaseFirst.Task;
+                return
+                [
+                    new TelegramUpdate(UpdateId: 10, MessageId: 100, ReplyToMessageId: null, ChatId: 42, IsPrivateChat: true, Text: "accepted"),
+                ];
+            }
+
+            return Array.Empty<TelegramUpdate>();
+        };
+
+        var firstPollTask = fixture.Service.PollOnceAsync(CancellationToken.None);
+        await firstEntered.Task;
+
+        var secondPollTask = fixture.Service.PollOnceAsync(CancellationToken.None);
+        await Task.Delay(50);
+
+        Assert.Equal(new[] { 0L }, fixture.Adapter.RequestedOffsets);
+
+        releaseFirst.SetResult();
+
+        var firstPoll = await firstPollTask;
+        var secondPoll = await secondPollTask;
+
+        Assert.Equal(11, firstPoll.NextOffset);
+        Assert.Equal(11, secondPoll.NextOffset);
+        Assert.Equal(new[] { 0L, 11L }, fixture.Adapter.RequestedOffsets);
+    }
+
     private ServiceFixture CreateService(
         long? authorizedChatId = null,
         string telegramBotToken = "token",
@@ -410,6 +452,8 @@ public sealed class TelegramBridgeServiceTests
 
         public Func<long, IReadOnlyList<TelegramUpdate>>? OnGetUpdates { get; set; }
 
+        public Func<long, CancellationToken, Task<IReadOnlyList<TelegramUpdate>>>? OnGetUpdatesAsync { get; set; }
+
         public Task<IReadOnlyList<TelegramUpdate>> GetUpdatesAsync(long offset, CancellationToken cancellationToken)
         {
             this.RequestedOffsets.Add(offset);
@@ -420,6 +464,11 @@ public sealed class TelegramBridgeServiceTests
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (this.OnGetUpdatesAsync is not null)
+            {
+                return this.OnGetUpdatesAsync(offset, cancellationToken);
+            }
 
             if (this.OnGetUpdates is not null)
             {

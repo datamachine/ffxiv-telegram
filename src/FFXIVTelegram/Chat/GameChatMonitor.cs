@@ -99,13 +99,16 @@ public sealed class GameChatMonitor : IDisposable
 
     private bool IsForwardingEnabled(ChatRoute route)
     {
-        return route switch
+        lock (this.configuration)
         {
-            ChatRoute.TellRoute => this.configuration.EnableTellForwarding,
-            ChatRoute.PartyRoute => this.configuration.EnablePartyForwarding,
-            ChatRoute.FreeCompanyRoute => this.configuration.EnableFreeCompanyForwarding,
-            _ => false,
-        };
+            return route switch
+            {
+                ChatRoute.TellRoute => this.configuration.EnableTellForwarding,
+                ChatRoute.PartyRoute => this.configuration.EnablePartyForwarding,
+                ChatRoute.FreeCompanyRoute => this.configuration.EnableFreeCompanyForwarding,
+                _ => false,
+            };
+        }
     }
 
     private void UpdateRouteContext(ChatRoute route)

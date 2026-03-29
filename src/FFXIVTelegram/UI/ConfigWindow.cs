@@ -45,9 +45,21 @@ public sealed class ConfigWindow
         this.IsOpen = isOpen;
 
         ImGui.TextUnformatted($"Connection state: {this.ConnectionState}");
-        if (this.configuration.AuthorizedChatId is long authorizedChatId)
+        long? authorizedChatId;
+        bool enableTellForwarding;
+        bool enablePartyForwarding;
+        bool enableFreeCompanyForwarding;
+        lock (this.configuration)
         {
-            ImGui.TextUnformatted($"Authorized chat: {authorizedChatId}");
+            authorizedChatId = this.configuration.AuthorizedChatId;
+            enableTellForwarding = this.configuration.EnableTellForwarding;
+            enablePartyForwarding = this.configuration.EnablePartyForwarding;
+            enableFreeCompanyForwarding = this.configuration.EnableFreeCompanyForwarding;
+        }
+
+        if (authorizedChatId is long currentAuthorizedChatId)
+        {
+            ImGui.TextUnformatted($"Authorized chat: {currentAuthorizedChatId}");
         }
         else if (this.ConnectionState == TelegramConnectionState.WaitingForStart)
         {
@@ -69,25 +81,31 @@ public sealed class ConfigWindow
 
         ImGui.Spacing();
 
-        var enableTellForwarding = this.configuration.EnableTellForwarding;
         if (ImGui.Checkbox("Forward tells", ref enableTellForwarding))
         {
-            this.configuration.EnableTellForwarding = enableTellForwarding;
-            this.configurationStore.Save(this.configuration);
+            lock (this.configuration)
+            {
+                this.configuration.EnableTellForwarding = enableTellForwarding;
+                this.configurationStore.Save(this.configuration);
+            }
         }
 
-        var enablePartyForwarding = this.configuration.EnablePartyForwarding;
         if (ImGui.Checkbox("Forward party chat", ref enablePartyForwarding))
         {
-            this.configuration.EnablePartyForwarding = enablePartyForwarding;
-            this.configurationStore.Save(this.configuration);
+            lock (this.configuration)
+            {
+                this.configuration.EnablePartyForwarding = enablePartyForwarding;
+                this.configurationStore.Save(this.configuration);
+            }
         }
 
-        var enableFreeCompanyForwarding = this.configuration.EnableFreeCompanyForwarding;
         if (ImGui.Checkbox("Forward free company chat", ref enableFreeCompanyForwarding))
         {
-            this.configuration.EnableFreeCompanyForwarding = enableFreeCompanyForwarding;
-            this.configurationStore.Save(this.configuration);
+            lock (this.configuration)
+            {
+                this.configuration.EnableFreeCompanyForwarding = enableFreeCompanyForwarding;
+                this.configurationStore.Save(this.configuration);
+            }
         }
 
         ImGui.End();
@@ -101,26 +119,29 @@ public sealed class ConfigWindow
     internal void FinalizeTelegramBotTokenEdit()
     {
         var normalizedToken = this.telegramBotTokenBuffer.Trim();
-        if (this.configuration.TelegramBotToken == normalizedToken)
+        lock (this.configuration)
         {
-            return;
-        }
+            if (this.configuration.TelegramBotToken == normalizedToken)
+            {
+                return;
+            }
 
-        var previousToken = this.configuration.TelegramBotToken;
-        var previousAuthorizedChatId = this.configuration.AuthorizedChatId;
-        this.configuration.TelegramBotToken = normalizedToken;
-        this.configuration.AuthorizedChatId = null;
-        this.telegramBotTokenBuffer = normalizedToken;
-        try
-        {
-            this.configurationStore.Save(this.configuration);
-        }
-        catch
-        {
-            this.configuration.TelegramBotToken = previousToken;
-            this.configuration.AuthorizedChatId = previousAuthorizedChatId;
-            this.telegramBotTokenBuffer = previousToken;
-            throw;
+            var previousToken = this.configuration.TelegramBotToken;
+            var previousAuthorizedChatId = this.configuration.AuthorizedChatId;
+            this.configuration.TelegramBotToken = normalizedToken;
+            this.configuration.AuthorizedChatId = null;
+            this.telegramBotTokenBuffer = normalizedToken;
+            try
+            {
+                this.configurationStore.Save(this.configuration);
+            }
+            catch
+            {
+                this.configuration.TelegramBotToken = previousToken;
+                this.configuration.AuthorizedChatId = previousAuthorizedChatId;
+                this.telegramBotTokenBuffer = previousToken;
+                throw;
+            }
         }
     }
 }
