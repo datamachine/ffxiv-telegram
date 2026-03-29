@@ -2,7 +2,7 @@ namespace FFXIVTelegram.Chat;
 
 public sealed class RouteTagParser
 {
-    public bool TryParse(string text, ChatRoute? lastActiveRoute, out RouteResolution resolution)
+    public bool TryParse(string text, ChatRoute? lastActiveTellRoute, out RouteResolution resolution)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -26,13 +26,13 @@ public sealed class RouteTagParser
                 resolution = RouteResolution.Success(ChatRoute.Party(), messageText);
                 return true;
             case "/r":
-                if (lastActiveRoute is null)
+                if (lastActiveTellRoute is not ChatRoute.TellRoute)
                 {
                     resolution = RouteResolution.Failure("Route could not be resolved.");
                     return true;
                 }
 
-                resolution = RouteResolution.Success(lastActiveRoute, messageText);
+                resolution = RouteResolution.Success(lastActiveTellRoute, messageText);
                 return true;
             default:
                 resolution = RouteResolution.Failure("Route tag unsupported.");
