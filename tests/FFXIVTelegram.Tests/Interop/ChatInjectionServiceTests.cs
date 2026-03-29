@@ -39,6 +39,48 @@ public sealed class ChatInjectionServiceTests
     }
 
     [Fact]
+    public async Task EnqueueAsyncNormalizesLineBreaksBeforeDispatch()
+    {
+        var dispatcher = new RecordingFrameworkDispatcher();
+        var executor = new RecordingGameChatExecutor();
+        var service = new ChatInjectionService(dispatcher, executor, TimeSpan.Zero);
+
+        await service.EnqueueAsync(ChatRoute.Party(), "first\r\nsecond\nthird\rfourth");
+
+        Assert.Equal(["/p first second third fourth"], executor.Messages);
+    }
+
+    [Fact]
+    public async Task EnqueueAsyncRejectsFormattedInputThatExceedsSafeUtf8Limit()
+    {
+        var dispatcher = new RecordingFrameworkDispatcher();
+        var executor = new RecordingGameChatExecutor();
+        var service = new ChatInjectionService(dispatcher, executor, TimeSpan.Zero);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.EnqueueAsync(ChatRoute.Party(), new string('a', 498)));
+
+        Assert.Contains("safe limits", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(executor.Messages);
+        Assert.Equal(0, dispatcher.InvocationCount);
+    }
+
+    [Fact]
+    public async Task EnqueueRawAsyncRejectsInputThatExceedsSafeUtf8Limit()
+    {
+        var dispatcher = new RecordingFrameworkDispatcher();
+        var executor = new RecordingGameChatExecutor();
+        var service = new ChatInjectionService(dispatcher, executor, TimeSpan.Zero);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.EnqueueRawAsync(new string('a', 501)));
+
+        Assert.Contains("safe limits", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(executor.Messages);
+        Assert.Equal(0, dispatcher.InvocationCount);
+    }
+
+    [Fact]
     public async Task EnforcesSingleMessageAtATimeThroughFrameworkDispatcher()
     {
         var dispatcher = new RecordingFrameworkDispatcher();

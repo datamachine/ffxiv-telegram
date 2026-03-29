@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,6 +14,21 @@ using Xunit;
 
 public sealed class TelegramHttpClientAdapterTests
 {
+    [Fact]
+    public void DefaultConstructorUsesLongPollCompatibleTimeout()
+    {
+        var configuration = new FfxivTelegramConfiguration
+        {
+            TelegramBotToken = "token",
+        };
+
+        using var adapter = new TelegramHttpClientAdapter(configuration);
+        var field = typeof(TelegramHttpClientAdapter).GetField("httpClient", BindingFlags.Instance | BindingFlags.NonPublic);
+        var httpClient = Assert.IsType<HttpClient>(field?.GetValue(adapter));
+
+        Assert.Equal(TimeSpan.FromSeconds(35), httpClient.Timeout);
+    }
+
     [Fact]
     public async Task GetUpdatesAsyncParsesPrivateMessagePayloads()
     {

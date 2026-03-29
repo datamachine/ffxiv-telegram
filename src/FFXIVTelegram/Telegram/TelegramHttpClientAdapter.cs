@@ -8,12 +8,13 @@ using FFXIVTelegram.Configuration;
 internal sealed class TelegramHttpClientAdapter : ITelegramClientAdapter, IDisposable
 {
     private static readonly Uri TelegramBaseUri = new("https://api.telegram.org/");
+    private static readonly TimeSpan DefaultHttpTimeout = TimeSpan.FromSeconds(35);
 
     private readonly FfxivTelegramConfiguration configuration;
     private readonly HttpClient httpClient;
 
     public TelegramHttpClientAdapter(FfxivTelegramConfiguration configuration)
-        : this(configuration, new HttpClient { BaseAddress = TelegramBaseUri })
+        : this(configuration, new HttpClient { BaseAddress = TelegramBaseUri, Timeout = DefaultHttpTimeout })
     {
     }
 

@@ -1,10 +1,13 @@
 namespace FFXIVTelegram.Interop;
 
+using System.Text;
 using FFXIVTelegram.Chat;
 
 public sealed class ChatInjectionService
     : IChatInjectionQueue, IDisposable
 {
+    private const int MaxInjectionUtf8Bytes = 500;
+
     private readonly IFrameworkDispatcher dispatcher;
     private readonly IGameChatExecutor executor;
     private readonly TimeSpan minimumDelay;
@@ -35,14 +38,17 @@ public sealed class ChatInjectionService
     public Task EnqueueAsync(ChatRoute route, string message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(route);
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return this.EnqueueInputAsync(this.FormatRouteInput(route, message.Trim()), cancellationToken);
+        var sanitizedMessage = SanitizeInputText(message, nameof(message));
+        var inputText = this.FormatRouteInput(route, sanitizedMessage);
+        ValidateSafeInputLength(inputText, nameof(message));
+        return this.EnqueueInputAsync(inputText, cancellationToken);
     }
 
     public Task EnqueueRawAsync(string inputText, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(inputText);
-        return this.EnqueueInputAsync(inputText.Trim(), cancellationToken);
+        var sanitizedInput = SanitizeInputText(inputText, nameof(inputText));
+        ValidateSafeInputLength(sanitizedInput, nameof(inputText));
+        return this.EnqueueInputAsync(sanitizedInput, cancellationToken);
     }
 
     private async Task EnqueueInputAsync(string inputText, CancellationToken cancellationToken)
@@ -77,6 +83,28 @@ public sealed class ChatInjectionService
             ChatRoute.TellRoute tell => $"/tell {tell.Target} {message}",
             _ => throw new InvalidOperationException("Unsupported chat route."),
         };
+    }
+
+    private static string SanitizeInputText(string inputText, string paramName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(inputText, paramName);
+
+        var sanitized = inputText
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Replace('\n', ' ')
+            .Trim();
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(sanitized, paramName);
+        return sanitized;
+    }
+
+    private static void ValidateSafeInputLength(string inputText, string paramName)
+    {
+        if (Encoding.UTF8.GetByteCount(inputText) > MaxInjectionUtf8Bytes)
+        {
+            throw new ArgumentException("Message exceeds FFXIV safe limits.", paramName);
+        }
     }
 
     public void Dispose()
