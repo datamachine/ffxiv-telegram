@@ -8,6 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="Dalamud.Bindings.ImGui">
+      <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImGui.dll</HintPath>
+    </Reference>
     <InternalsVisibleTo Include="FFXIVTelegram.Tests" />
   </ItemGroup>
 </Project>
