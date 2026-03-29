@@ -13,6 +13,8 @@ internal class DalamudPluginInterfaceTestDouble : DispatchProxy
 
     public IPluginConfiguration? SavedConfiguration { get; private set; }
 
+    public bool ThrowOnSave { get; set; }
+
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
         if (targetMethod == null)
@@ -25,6 +27,11 @@ internal class DalamudPluginInterfaceTestDouble : DispatchProxy
             case "GetPluginConfig":
                 return this.PluginConfiguration;
             case "SavePluginConfig":
+                if (this.ThrowOnSave)
+                {
+                    throw new InvalidOperationException("save failed");
+                }
+
                 this.SavedConfiguration = (IPluginConfiguration?)args?[0];
                 return null;
             case "get_UiBuilder":

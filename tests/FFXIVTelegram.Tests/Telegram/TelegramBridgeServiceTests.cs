@@ -26,6 +26,19 @@ public sealed class TelegramBridgeServiceTests
     }
 
     [Fact]
+    public async Task StartAuthorizationRollsBackWhenSaveFails()
+    {
+        var fixture = this.CreateService(saveThrows: true);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => fixture.Service.HandleIncomingTextAsync(chatId: 42, isPrivateChat: true, text: "/start"));
+
+        Assert.Null(fixture.Service.Configuration.AuthorizedChatId);
+        Assert.Null(fixture.PluginProxy.SavedConfiguration);
+        Assert.Equal(TelegramConnectionState.WaitingForStart, fixture.Service.ConnectionState);
+    }
+
+    [Fact]
     public async Task IgnoresMessagesFromUnauthorizedChat()
     {
         var fixture = this.CreateService(authorizedChatId: 42);
@@ -95,6 +108,18 @@ public sealed class TelegramBridgeServiceTests
     }
 
     [Fact]
+    public async Task PollOncePropagatesAdapterCancellationWhenCallerDidNotCancel()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42, adapterThrowsTaskCanceled: true);
+
+        var exception = await Assert.ThrowsAsync<TaskCanceledException>(
+            () => fixture.Service.PollOnceAsync(CancellationToken.None));
+
+        Assert.IsType<TaskCanceledException>(exception);
+        Assert.Equal(TelegramConnectionState.Error, fixture.Service.ConnectionState);
+    }
+
+    [Fact]
     public async Task SendToAuthorizedChatReturnsMessageId()
     {
         var fixture = this.CreateService(authorizedChatId: 42, sendResult: TelegramSendResult.Ok(987));
@@ -122,21 +147,58 @@ public sealed class TelegramBridgeServiceTests
         Assert.Equal(0, fixture.Adapter.SendCallCount);
     }
 
+    [Fact]
+    public async Task SendToAuthorizedChatWithoutBotTokenDoesNotCallAdapter()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42, telegramBotToken: string.Empty);
+
+        var result = await fixture.Service.SendToAuthorizedChatAsync("hello");
+
+        Assert.False(result.Success);
+        Assert.Null(result.MessageId);
+        Assert.Equal("bot token not configured", result.ErrorMessage);
+        Assert.Equal(0, fixture.Adapter.SendCallCount);
+    }
+
+    [Fact]
+    public async Task PollOncePreservesPrivateReplyMessageIds()
+    {
+        var fixture = this.CreateService(
+            authorizedChatId: 42,
+            updateBatches:
+            [
+                [
+                    new TelegramUpdate(UpdateId: 20, MessageId: 200, ReplyToMessageId: 150, ChatId: 42, IsPrivateChat: true, Text: "reply"),
+                ],
+            ]);
+
+        var result = await fixture.Service.PollOnceAsync(CancellationToken.None);
+
+        var accepted = Assert.Single(result.AcceptedMessages);
+        Assert.Equal(200, accepted.MessageId);
+        Assert.Equal(150, accepted.ReplyToMessageId);
+    }
+
     private ServiceFixture CreateService(
         long? authorizedChatId = null,
+        string telegramBotToken = "token",
         TelegramSendResult? sendResult = null,
+        bool saveThrows = false,
+        bool adapterThrowsTaskCanceled = false,
         params IReadOnlyList<TelegramUpdate>[] updateBatches)
     {
         var configuration = new FfxivTelegramConfiguration
         {
-            TelegramBotToken = "token",
+            TelegramBotToken = telegramBotToken,
             AuthorizedChatId = authorizedChatId,
         };
         var plugin = DalamudPluginInterfaceTestDouble.Create(configuration, out var pluginProxy, out _);
+        pluginProxy.ThrowOnSave = saveThrows;
         var store = new ConfigurationStore(plugin);
         var adapter = new StubTelegramClientAdapter(updateBatches)
         {
             SendResult = sendResult ?? TelegramSendResult.Ok(123),
+            ThrowTaskCanceledOnPoll = adapterThrowsTaskCanceled,
         };
         var service = new TelegramBridgeService(configuration, adapter, store);
 
@@ -170,9 +232,17 @@ public sealed class TelegramBridgeServiceTests
 
         public TelegramSendResult SendResult { get; set; } = TelegramSendResult.Ok(123);
 
+        public bool ThrowTaskCanceledOnPoll { get; set; }
+
         public Task<IReadOnlyList<TelegramUpdate>> GetUpdatesAsync(long offset, CancellationToken cancellationToken)
         {
             this.RequestedOffsets.Add(offset);
+
+            if (this.ThrowTaskCanceledOnPoll)
+            {
+                throw new TaskCanceledException("adapter timeout");
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
 
             if (this.updateBatches.Count > 0)

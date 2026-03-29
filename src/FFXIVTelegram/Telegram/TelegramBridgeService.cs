@@ -51,9 +51,14 @@ public sealed class TelegramBridgeService
             this.ConnectionState = this.ResolveConnectionState(this.Configuration);
             return new TelegramPollResult(this.nextUpdateOffset, acceptedMessages);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return TelegramPollResult.Empty(this.nextUpdateOffset);
+        }
+        catch (OperationCanceledException)
+        {
+            this.ConnectionState = TelegramConnectionState.Error;
+            throw;
         }
         catch
         {
@@ -90,10 +95,21 @@ public sealed class TelegramBridgeService
         {
             if (text == "/start")
             {
+                var previousAuthorizedChatId = this.Configuration.AuthorizedChatId;
                 this.Configuration.AuthorizedChatId = chatId;
-                this.configurationStore.Save(this.Configuration);
-                this.ConnectionState = TelegramConnectionState.Connected;
-                return Task.FromResult(TelegramInboundResult.Authorized);
+
+                try
+                {
+                    this.configurationStore.Save(this.Configuration);
+                    this.ConnectionState = TelegramConnectionState.Connected;
+                    return Task.FromResult(TelegramInboundResult.Authorized);
+                }
+                catch
+                {
+                    this.Configuration.AuthorizedChatId = previousAuthorizedChatId;
+                    this.ConnectionState = this.ResolveConnectionState(this.Configuration);
+                    throw;
+                }
             }
 
             this.ConnectionState = TelegramConnectionState.WaitingForStart;
@@ -112,6 +128,11 @@ public sealed class TelegramBridgeService
     public async Task<TelegramSendResult> SendToAuthorizedChatAsync(string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
+
+        if (!this.Configuration.HasTelegramBotToken)
+        {
+            return TelegramSendResult.Failure("bot token not configured");
+        }
 
         var chatId = this.Configuration.AuthorizedChatId;
         if (chatId is null)
