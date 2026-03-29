@@ -6,6 +6,7 @@ public sealed class TelegramBridgeService
 {
     private readonly ITelegramClientAdapter clientAdapter;
     private readonly ConfigurationStore configurationStore;
+    private bool hasTransportError;
     private long nextUpdateOffset;
 
     public TelegramBridgeService(
@@ -16,19 +17,20 @@ public sealed class TelegramBridgeService
         this.Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.clientAdapter = clientAdapter ?? throw new ArgumentNullException(nameof(clientAdapter));
         this.configurationStore = configurationStore ?? throw new ArgumentNullException(nameof(configurationStore));
-        this.ConnectionState = this.ResolveConnectionState(configuration);
         this.nextUpdateOffset = 0;
     }
 
     public FfxivTelegramConfiguration Configuration { get; }
 
-    public TelegramConnectionState ConnectionState { get; private set; }
+    public TelegramConnectionState ConnectionState => this.hasTransportError
+        ? TelegramConnectionState.Error
+        : this.ResolveConnectionState(this.Configuration);
 
     public async Task<TelegramPollResult> PollOnceAsync(CancellationToken cancellationToken)
     {
         if (!this.Configuration.HasTelegramBotToken)
         {
-            this.ConnectionState = TelegramConnectionState.NotConfigured;
+            this.hasTransportError = false;
             return TelegramPollResult.Empty(this.nextUpdateOffset);
         }
 
@@ -48,7 +50,7 @@ public sealed class TelegramBridgeService
                 }
             }
 
-            this.ConnectionState = this.ResolveConnectionState(this.Configuration);
+            this.hasTransportError = false;
             return new TelegramPollResult(this.nextUpdateOffset, acceptedMessages);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -57,12 +59,12 @@ public sealed class TelegramBridgeService
         }
         catch (OperationCanceledException)
         {
-            this.ConnectionState = TelegramConnectionState.Error;
+            this.hasTransportError = true;
             throw;
         }
         catch
         {
-            this.ConnectionState = TelegramConnectionState.Error;
+            this.hasTransportError = true;
             throw;
         }
     }
@@ -77,17 +79,19 @@ public sealed class TelegramBridgeService
 
         if (!this.Configuration.HasTelegramBotToken)
         {
-            this.ConnectionState = TelegramConnectionState.NotConfigured;
+            this.hasTransportError = false;
             return Task.FromResult(TelegramInboundResult.IgnoredUnsupportedChatType);
         }
 
         if (!isPrivateChat)
         {
+            this.hasTransportError = false;
             return Task.FromResult(TelegramInboundResult.IgnoredUnsupportedChatType);
         }
 
         if (string.IsNullOrWhiteSpace(text))
         {
+            this.hasTransportError = false;
             return Task.FromResult(TelegramInboundResult.IgnoredEmptyText);
         }
 
@@ -101,27 +105,27 @@ public sealed class TelegramBridgeService
                 try
                 {
                     this.configurationStore.Save(this.Configuration);
-                    this.ConnectionState = TelegramConnectionState.Connected;
+                    this.hasTransportError = false;
                     return Task.FromResult(TelegramInboundResult.Authorized);
                 }
                 catch
                 {
                     this.Configuration.AuthorizedChatId = previousAuthorizedChatId;
-                    this.ConnectionState = this.ResolveConnectionState(this.Configuration);
                     throw;
                 }
             }
 
-            this.ConnectionState = TelegramConnectionState.WaitingForStart;
+            this.hasTransportError = false;
             return Task.FromResult(TelegramInboundResult.IgnoredUnauthorizedChat);
         }
 
         if (this.Configuration.AuthorizedChatId.Value != chatId)
         {
+            this.hasTransportError = false;
             return Task.FromResult(TelegramInboundResult.IgnoredUnauthorizedChat);
         }
 
-        this.ConnectionState = TelegramConnectionState.Connected;
+        this.hasTransportError = false;
         return Task.FromResult(TelegramInboundResult.Accepted);
     }
 
@@ -131,16 +135,20 @@ public sealed class TelegramBridgeService
 
         if (!this.Configuration.HasTelegramBotToken)
         {
+            this.hasTransportError = false;
             return TelegramSendResult.Failure("bot token not configured");
         }
 
         var chatId = this.Configuration.AuthorizedChatId;
         if (chatId is null)
         {
+            this.hasTransportError = false;
             return TelegramSendResult.Failure("no authorized chat yet");
         }
 
-        return await this.clientAdapter.SendTextAsync(chatId.Value, text, cancellationToken).ConfigureAwait(false);
+        var result = await this.clientAdapter.SendTextAsync(chatId.Value, text, cancellationToken).ConfigureAwait(false);
+        this.hasTransportError = false;
+        return result;
     }
 
     private async Task<TelegramInboundMessage?> HandleIncomingUpdateAsync(TelegramUpdate update, CancellationToken cancellationToken)

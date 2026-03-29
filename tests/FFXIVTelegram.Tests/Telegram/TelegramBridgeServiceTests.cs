@@ -26,6 +26,21 @@ public sealed class TelegramBridgeServiceTests
     }
 
     [Fact]
+    public void ConnectionStateReflectsLiveConfigurationChanges()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42);
+
+        Assert.Equal(TelegramConnectionState.Connected, fixture.Service.ConnectionState);
+
+        fixture.Service.Configuration.TelegramBotToken = string.Empty;
+        Assert.Equal(TelegramConnectionState.NotConfigured, fixture.Service.ConnectionState);
+
+        fixture.Service.Configuration.TelegramBotToken = "token";
+        fixture.Service.Configuration.AuthorizedChatId = null;
+        Assert.Equal(TelegramConnectionState.WaitingForStart, fixture.Service.ConnectionState);
+    }
+
+    [Fact]
     public async Task StartAuthorizationRollsBackWhenSaveFails()
     {
         var fixture = this.CreateService(saveThrows: true);
@@ -177,6 +192,32 @@ public sealed class TelegramBridgeServiceTests
         var accepted = Assert.Single(result.AcceptedMessages);
         Assert.Equal(200, accepted.MessageId);
         Assert.Equal(150, accepted.ReplyToMessageId);
+    }
+
+    [Fact]
+    public async Task PollStartThenForeignChatAdvancesOffsetAndRejectsForeignMessages()
+    {
+        var fixture = this.CreateService(
+            updateBatches:
+            [
+                [
+                    new TelegramUpdate(UpdateId: 50, MessageId: 500, ReplyToMessageId: null, ChatId: 42, IsPrivateChat: true, Text: "/start"),
+                ],
+                [
+                    new TelegramUpdate(UpdateId: 51, MessageId: 501, ReplyToMessageId: null, ChatId: 99, IsPrivateChat: true, Text: "hello"),
+                ],
+            ]);
+
+        var firstPoll = await fixture.Service.PollOnceAsync(CancellationToken.None);
+        var secondPoll = await fixture.Service.PollOnceAsync(CancellationToken.None);
+
+        Assert.Equal(42, fixture.Service.Configuration.AuthorizedChatId);
+        Assert.Same(fixture.Service.Configuration, fixture.PluginProxy.SavedConfiguration);
+        Assert.Equal(new[] { 0L, 51L }, fixture.Adapter.RequestedOffsets);
+        Assert.Equal(51, firstPoll.NextOffset);
+        Assert.Empty(firstPoll.AcceptedMessages);
+        Assert.Equal(52, secondPoll.NextOffset);
+        Assert.Empty(secondPoll.AcceptedMessages);
     }
 
     private ServiceFixture CreateService(
