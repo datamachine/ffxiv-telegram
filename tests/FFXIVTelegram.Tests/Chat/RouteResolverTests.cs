@@ -29,6 +29,14 @@ public sealed class RouteResolverTests
     }
 
     [Fact]
+    public void RouteContextRejectsConflictingTellState()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => RouteContext.FromState(ChatRoute.Tell("Alice"), ChatRoute.Tell("Bob")));
+
+        Assert.Equal("lastTellRoute", exception.ParamName);
+    }
+
+    [Fact]
     public void ExplicitTagWinsOverReplyAndLastActive()
     {
         var resolver = new RouteResolver(new RouteTagParser());

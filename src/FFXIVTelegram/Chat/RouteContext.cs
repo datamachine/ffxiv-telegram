@@ -19,6 +19,14 @@ public sealed class RouteContext
             throw new ArgumentException("LastTellRoute must be a tell route.", nameof(lastTellRoute));
         }
 
+        if (
+            lastTellRoute is ChatRoute.TellRoute tellRoute
+            && lastActiveRoute is ChatRoute.TellRoute activeTellRoute
+            && tellRoute.Target != activeTellRoute.Target)
+        {
+            throw new ArgumentException("LastTellRoute must match the tell route carried by LastActiveRoute.", nameof(lastTellRoute));
+        }
+
         var normalizedTellRoute = lastTellRoute as ChatRoute.TellRoute ?? lastActiveRoute as ChatRoute.TellRoute;
         return new RouteContext(lastActiveRoute, normalizedTellRoute);
     }
