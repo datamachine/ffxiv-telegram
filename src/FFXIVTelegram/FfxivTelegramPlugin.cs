@@ -1,3 +1,5 @@
+namespace FFXIVTelegram;
+
 using Dalamud.Plugin;
 
 public sealed class FfxivTelegramPlugin : IDalamudPlugin

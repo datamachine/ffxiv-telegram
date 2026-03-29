@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
-    <PackageReference Include="Moq" Version="4.20.70" />
     <PackageReference Include="xunit" Version="2.7.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -35,8 +34,17 @@
   <PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'">
     <DalamudLibPath Condition="'$(DALAMUD_HOME)' != ''">$(DALAMUD_HOME)/</DalamudLibPath>
     <DalamudLibPath Condition="'$(DALAMUD_HOME)' == '' and Exists('$(HOME)/.xlcore/dalamud/Hooks/dev/Dalamud.dll')">$(HOME)/.xlcore/dalamud/Hooks/dev/</DalamudLibPath>
-    <DalamudLibPath Condition="'$(DALAMUD_HOME)' == '' and !Exists('$(HOME)/.xlcore/dalamud/Hooks/dev/Dalamud.dll') and Exists('$(HOME)/.xlcore/dalamud/Hooks/14.0.4.3/Dalamud.dll')">$(HOME)/.xlcore/dalamud/Hooks/14.0.4.3/</DalamudLibPath>
   </PropertyGroup>
+
+  <Target Name="_ResolveDalamudLibPath" BeforeTargets="PrepareForBuild" Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' and '$(DALAMUD_HOME)' == '' and !Exists('$(HOME)/.xlcore/dalamud/Hooks/dev/Dalamud.dll')">
+    <Exec Command="bash -lc 'latest=$(ls -1d &quot;$(HOME)/.xlcore/dalamud/Hooks/&quot;*/ 2&gt;/dev/null | sort -V | tail -n 1); printf %s &quot;$latest&quot;'" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="_ResolvedDalamudLibPath" />
+    </Exec>
+
+    <PropertyGroup Condition="'@(_ResolvedDalamudLibPath)' != ''">
+      <DalamudLibPath>@(_ResolvedDalamudLibPath)</DalamudLibPath>
+    </PropertyGroup>
+  </Target>
 
   <PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))'">
     <DalamudLibPath>$(HOME)/Library/Application Support/XIV on Mac/dalamud/Hooks/dev/</DalamudLibPath>
