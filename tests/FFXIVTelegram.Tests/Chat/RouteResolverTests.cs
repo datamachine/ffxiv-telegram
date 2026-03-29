@@ -91,6 +91,30 @@ public sealed class RouteResolverTests
     }
 
     [Fact]
+    public void SlashRFailsWhenNoTellTargetIsAvailable()
+    {
+        var resolver = new RouteResolver(new RouteTagParser());
+
+        var result = resolver.Resolve("/r hello", replyRoute: null, lastActiveRoute: ChatRoute.Party());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Route could not be resolved.", result.ErrorMessage);
+        Assert.Null(result.Route);
+    }
+
+    [Fact]
+    public void SlashRFailsWhenNoLastActiveRouteExists()
+    {
+        var resolver = new RouteResolver(new RouteTagParser());
+
+        var result = resolver.Resolve("/r hello", replyRoute: null, lastActiveRoute: null);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Route could not be resolved.", result.ErrorMessage);
+        Assert.Null(result.Route);
+    }
+
+    [Fact]
     public void UnsupportedTagFailsCleanly()
     {
         var resolver = new RouteResolver(new RouteTagParser());
