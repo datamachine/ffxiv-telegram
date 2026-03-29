@@ -58,6 +58,33 @@ public sealed class TelegramBridgeServiceTests
     }
 
     [Fact]
+    public async Task PollFailureBeforeAuthorizationReportsError()
+    {
+        var fixture = this.CreateService(adapterThrowsTaskCanceledOnPoll: true);
+
+        await Assert.ThrowsAsync<TaskCanceledException>(
+            () => fixture.Service.PollOnceAsync(CancellationToken.None));
+
+        Assert.Equal(TelegramConnectionState.Error, fixture.Service.ConnectionState);
+    }
+
+    [Fact]
+    public async Task TransportErrorClearsWhenTokenOrAuthorizationChanges()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42, adapterThrowsTaskCanceledOnPoll: true);
+
+        await Assert.ThrowsAsync<TaskCanceledException>(
+            () => fixture.Service.PollOnceAsync(CancellationToken.None));
+        Assert.Equal(TelegramConnectionState.Error, fixture.Service.ConnectionState);
+
+        fixture.Service.Configuration.TelegramBotToken = "replacement-token";
+        Assert.Equal(TelegramConnectionState.Connected, fixture.Service.ConnectionState);
+
+        fixture.Service.Configuration.AuthorizedChatId = null;
+        Assert.Equal(TelegramConnectionState.WaitingForStart, fixture.Service.ConnectionState);
+    }
+
+    [Fact]
     public async Task StartAuthorizationRollsBackWhenSaveFails()
     {
         var fixture = this.CreateService(saveThrows: true);
