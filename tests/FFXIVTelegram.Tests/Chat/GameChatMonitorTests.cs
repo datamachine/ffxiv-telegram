@@ -100,6 +100,20 @@ public sealed class GameChatMonitorTests
         Assert.False(failureFixture.ReplyMap.TryGetRoute(123, out _));
     }
 
+    [Fact]
+    public void RecordRouteUsageUpdatesCurrentRouteContext()
+    {
+        var fixture = this.CreateFixture();
+
+        fixture.Monitor.RecordRouteUsage(ChatRoute.Party());
+        Assert.Equal(ChatRoute.Party(), fixture.Monitor.CurrentRouteContext.LastActiveRoute);
+        Assert.Null(fixture.Monitor.CurrentRouteContext.LastTellRoute);
+
+        fixture.Monitor.RecordRouteUsage(ChatRoute.Tell("Alice Example"));
+        Assert.Equal(ChatRoute.Tell("Alice Example"), fixture.Monitor.CurrentRouteContext.LastActiveRoute);
+        Assert.Equal(ChatRoute.Tell("Alice Example"), fixture.Monitor.CurrentRouteContext.LastTellRoute);
+    }
+
     private Fixture CreateFixture(
         TelegramSendResult? sendResult = null,
         Action<FfxivTelegramConfiguration>? configure = null)

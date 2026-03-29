@@ -7,6 +7,7 @@ public sealed class TelegramBridgeService
     private readonly ITelegramClientAdapter clientAdapter;
     private readonly ConfigurationStore configurationStore;
     private TransportErrorContext? transportErrorContext;
+    private string? pollingToken;
     private long nextUpdateOffset;
 
     public TelegramBridgeService(
@@ -41,6 +42,8 @@ public sealed class TelegramBridgeService
 
     public async Task<TelegramPollResult> PollOnceAsync(CancellationToken cancellationToken)
     {
+        this.RefreshPollingCursorIfBotTokenChanged();
+
         if (!this.Configuration.HasTelegramBotToken)
         {
             this.transportErrorContext = null;
@@ -49,7 +52,16 @@ public sealed class TelegramBridgeService
 
         try
         {
-            var updates = await this.clientAdapter.GetUpdatesAsync(this.nextUpdateOffset, cancellationToken).ConfigureAwait(false);
+            var pollingToken = this.Configuration.TelegramBotToken;
+            var pollingOffset = this.nextUpdateOffset;
+            var updates = await this.clientAdapter.GetUpdatesAsync(pollingOffset, cancellationToken).ConfigureAwait(false);
+            if (!string.Equals(pollingToken, this.Configuration.TelegramBotToken, StringComparison.Ordinal))
+            {
+                this.RefreshPollingCursorIfBotTokenChanged();
+                this.transportErrorContext = null;
+                return TelegramPollResult.Empty(this.nextUpdateOffset);
+            }
+
             var acceptedMessages = new List<TelegramInboundMessage>();
 
             foreach (var update in updates)
@@ -202,6 +214,21 @@ public sealed class TelegramBridgeService
         return configuration.HasAuthorizedChat
             ? TelegramConnectionState.Connected
             : TelegramConnectionState.WaitingForStart;
+    }
+
+    private void RefreshPollingCursorIfBotTokenChanged()
+    {
+        var currentToken = this.Configuration.HasTelegramBotToken
+            ? this.Configuration.TelegramBotToken
+            : null;
+
+        if (string.Equals(this.pollingToken, currentToken, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        this.pollingToken = currentToken;
+        this.nextUpdateOffset = 0;
     }
 
     private readonly record struct TransportErrorContext(string TelegramBotToken, long? AuthorizedChatId)

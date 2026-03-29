@@ -45,6 +45,15 @@ public sealed class ConfigWindow
         this.IsOpen = isOpen;
 
         ImGui.TextUnformatted($"Connection state: {this.ConnectionState}");
+        if (this.configuration.AuthorizedChatId is long authorizedChatId)
+        {
+            ImGui.TextUnformatted($"Authorized chat: {authorizedChatId}");
+        }
+        else if (this.ConnectionState == TelegramConnectionState.WaitingForStart)
+        {
+            ImGui.TextWrapped("Send /start to the bot from a private Telegram chat to authorize this client.");
+        }
+
         ImGui.Spacing();
 
         var token = this.telegramBotTokenBuffer;
@@ -97,8 +106,21 @@ public sealed class ConfigWindow
             return;
         }
 
+        var previousToken = this.configuration.TelegramBotToken;
+        var previousAuthorizedChatId = this.configuration.AuthorizedChatId;
         this.configuration.TelegramBotToken = normalizedToken;
+        this.configuration.AuthorizedChatId = null;
         this.telegramBotTokenBuffer = normalizedToken;
-        this.configurationStore.Save(this.configuration);
+        try
+        {
+            this.configurationStore.Save(this.configuration);
+        }
+        catch
+        {
+            this.configuration.TelegramBotToken = previousToken;
+            this.configuration.AuthorizedChatId = previousAuthorizedChatId;
+            this.telegramBotTokenBuffer = previousToken;
+            throw;
+        }
     }
 }

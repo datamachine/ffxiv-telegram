@@ -13,8 +13,9 @@ public sealed class RouteResolver
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(context);
+        var trimmedText = text.Trim();
 
-        if (string.IsNullOrWhiteSpace(text))
+        if (trimmedText.Length == 0)
         {
             return RouteResolution.Failure("Route could not be resolved.");
         }
@@ -36,12 +37,12 @@ public sealed class RouteResolver
 
         if (replyRoute is not null)
         {
-            return RouteResolution.Success(replyRoute, text);
+            return RouteResolution.Success(replyRoute, trimmedText);
         }
 
         if (context.LastActiveRoute is not null)
         {
-            return RouteResolution.Success(context.LastActiveRoute, text);
+            return RouteResolution.Success(context.LastActiveRoute, trimmedText);
         }
 
         return RouteResolution.Failure("Route could not be resolved.");

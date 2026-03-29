@@ -8,6 +8,7 @@ using FFXIVTelegram.Telegram;
 
 public sealed class GameChatMonitor : IDisposable
 {
+    private readonly object routeStateGate = new();
     private readonly IChatGui chatGui;
     private readonly FfxivTelegramConfiguration configuration;
     private readonly TelegramBridgeService telegramBridge;
@@ -29,7 +30,16 @@ public sealed class GameChatMonitor : IDisposable
         this.chatGui.ChatMessage += this.OnChatMessage;
     }
 
-    public RouteContext CurrentRouteContext => RouteContext.FromState(this.lastActiveRoute, this.lastTellRoute);
+    public RouteContext CurrentRouteContext
+    {
+        get
+        {
+            lock (this.routeStateGate)
+            {
+                return RouteContext.FromState(this.lastActiveRoute, this.lastTellRoute);
+            }
+        }
+    }
 
     public async Task<TelegramSendResult?> ForwardAsync(
         XivChatType type,
@@ -64,6 +74,12 @@ public sealed class GameChatMonitor : IDisposable
         this.chatGui.ChatMessage -= this.OnChatMessage;
     }
 
+    public void RecordRouteUsage(ChatRoute route)
+    {
+        ArgumentNullException.ThrowIfNull(route);
+        this.UpdateRouteContext(route);
+    }
+
     private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
     {
         _ = this.ForwardSafelyAsync(type, sender.TextValue, message.TextValue, CancellationToken.None);
@@ -94,7 +110,10 @@ public sealed class GameChatMonitor : IDisposable
 
     private void UpdateRouteContext(ChatRoute route)
     {
-        this.lastActiveRoute = route;
-        this.lastTellRoute = route as ChatRoute.TellRoute ?? this.lastTellRoute;
+        lock (this.routeStateGate)
+        {
+            this.lastActiveRoute = route;
+            this.lastTellRoute = route as ChatRoute.TellRoute ?? this.lastTellRoute;
+        }
     }
 }

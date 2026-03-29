@@ -62,7 +62,7 @@ public sealed class TelegramHttpClientAdapterTests
         Assert.Equal(42, update.ChatId);
         Assert.True(update.IsPrivateChat);
         Assert.Equal("hello", update.Text);
-        Assert.Equal("https://api.telegram.org/bottoken/getUpdates?offset=5", handler.RequestUris[0]?.ToString());
+        Assert.Equal("https://api.telegram.org/bottoken/getUpdates?offset=5&timeout=30", handler.RequestUris[0]?.ToString());
     }
 
     [Fact]

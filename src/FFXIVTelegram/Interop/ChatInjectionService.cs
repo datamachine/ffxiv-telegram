@@ -3,6 +3,7 @@ namespace FFXIVTelegram.Interop;
 using FFXIVTelegram.Chat;
 
 public sealed class ChatInjectionService
+    : IChatInjectionQueue, IDisposable
 {
     private readonly IFrameworkDispatcher dispatcher;
     private readonly IGameChatExecutor executor;
@@ -76,5 +77,10 @@ public sealed class ChatInjectionService
             ChatRoute.TellRoute tell => $"/tell {tell.Target} {message}",
             _ => throw new InvalidOperationException("Unsupported chat route."),
         };
+    }
+
+    public void Dispose()
+    {
+        this.gate.Dispose();
     }
 }

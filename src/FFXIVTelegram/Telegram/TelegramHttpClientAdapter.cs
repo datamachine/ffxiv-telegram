@@ -35,7 +35,7 @@ internal sealed class TelegramHttpClientAdapter : ITelegramClientAdapter, IDispo
         var token = Uri.EscapeDataString(this.configuration.TelegramBotToken);
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
-            $"bot{token}/getUpdates?offset={offset.ToString(CultureInfo.InvariantCulture)}");
+            $"bot{token}/getUpdates?offset={offset.ToString(CultureInfo.InvariantCulture)}&timeout=30");
         using var response = await this.httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
