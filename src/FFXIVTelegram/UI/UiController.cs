@@ -8,9 +8,9 @@ public sealed class UiController : IDisposable
 {
     private readonly IDalamudPluginInterface pluginInterface;
 
-    private readonly ConfigWindow configWindow;
+    private readonly IConfigWindow configWindow;
 
-    public UiController(IDalamudPluginInterface pluginInterface, ConfigWindow configWindow)
+    public UiController(IDalamudPluginInterface pluginInterface, IConfigWindow configWindow)
     {
         this.pluginInterface = pluginInterface ?? throw new ArgumentNullException(nameof(pluginInterface));
         this.configWindow = configWindow ?? throw new ArgumentNullException(nameof(configWindow));

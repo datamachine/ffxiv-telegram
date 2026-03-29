@@ -6,6 +6,7 @@ using FFXIVTelegram.Telegram;
 using Dalamud.Bindings.ImGui;
 
 public sealed class ConfigWindow
+    : IConfigWindow
 {
     private const string WindowName = "FFXIV Telegram Configuration";
 
@@ -13,10 +14,13 @@ public sealed class ConfigWindow
 
     private readonly FfxivTelegramConfiguration configuration;
 
+    private string telegramBotTokenBuffer;
+
     public ConfigWindow(FfxivTelegramConfiguration configuration, ConfigurationStore configurationStore)
     {
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.configurationStore = configurationStore ?? throw new ArgumentNullException(nameof(configurationStore));
+        this.telegramBotTokenBuffer = this.configuration.TelegramBotToken;
     }
 
     public bool IsOpen { get; set; }
@@ -43,11 +47,15 @@ public sealed class ConfigWindow
         ImGui.TextUnformatted($"Connection state: {this.ConnectionState}");
         ImGui.Spacing();
 
-        var token = this.configuration.TelegramBotToken;
+        var token = this.telegramBotTokenBuffer;
         if (ImGui.InputText("Telegram bot token", ref token, 512, ImGuiInputTextFlags.Password))
         {
-            this.configuration.TelegramBotToken = token;
-            this.configurationStore.Save(this.configuration);
+            this.UpdateTelegramBotTokenBuffer(token);
+        }
+
+        if (ImGui.IsItemDeactivatedAfterEdit())
+        {
+            this.FinalizeTelegramBotTokenEdit();
         }
 
         ImGui.Spacing();
@@ -74,5 +82,23 @@ public sealed class ConfigWindow
         }
 
         ImGui.End();
+    }
+
+    internal void UpdateTelegramBotTokenBuffer(string telegramBotTokenBuffer)
+    {
+        this.telegramBotTokenBuffer = telegramBotTokenBuffer;
+    }
+
+    internal void FinalizeTelegramBotTokenEdit()
+    {
+        var normalizedToken = this.telegramBotTokenBuffer.Trim();
+        if (this.configuration.TelegramBotToken == normalizedToken)
+        {
+            return;
+        }
+
+        this.configuration.TelegramBotToken = normalizedToken;
+        this.telegramBotTokenBuffer = normalizedToken;
+        this.configurationStore.Save(this.configuration);
     }
 }
