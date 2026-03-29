@@ -1,8 +1,8 @@
-# TeleBridge XIV MVP Design
+# FFXIV Telegram MVP Design
 
 ## Overview
 
-TeleBridge XIV is a greenfield Dalamud plugin for Final Fantasy XIV that bridges selected in-game chat channels with a Telegram bot. The MVP supports:
+FFXIV Telegram is a greenfield Dalamud plugin for Final Fantasy XIV that bridges selected in-game chat channels with a Telegram bot. The MVP supports:
 
 - Forwarding in-game `Tell`, `Party`, and `Free Company` messages to Telegram
 - Accepting inbound Telegram messages from one authorized private chat
@@ -51,7 +51,7 @@ Why this approach:
 
 ### Composition Root
 
-`TeleBridgePlugin` is the composition root. It owns plugin lifecycle, slash-command registration, configuration loading, UI registration, service construction, and disposal.
+`FfxivTelegramPlugin` is the composition root. It owns plugin lifecycle, slash-command registration, configuration loading, UI registration, service construction, and disposal.
 
 Required Dalamud services requested via constructor injection:
 
@@ -64,7 +64,7 @@ Required Dalamud services requested via constructor injection:
 
 ### Internal Components
 
-#### `TeleBridgeConfiguration`
+#### `FfxivTelegramConfiguration`
 
 Persisted plugin configuration holding:
 
@@ -279,6 +279,22 @@ Initial project structure should favor small, purpose-specific files and folders
 
 The plugin should remain one assembly for MVP unless implementation proves a stronger separation is necessary.
 
+## Local Reference Sources
+
+Implementation planning should use the local `../DalamudPlugins/` tree as the primary reference corpus for plugin conventions and prior art.
+
+Priority references:
+
+- `../DalamudPlugins/plugins/XIVChat/XIVChatSource`
+- Other plugin implementations under `../DalamudPlugins/plugins/` for config windows, command registration, lifecycle handling, and general Dalamud project structure
+
+The XIVChat decompiled source is the explicit local reference for the native chat-write path:
+
+- `XIVChatPlugin/GameFunctions.cs` contains `ProcessChatBox(string message)` and uses `((Framework)Framework.Instance()).GetUiModule()` to obtain the UI module before invoking the game chat-processing path
+- `XIVChatPlugin/Plugin.cs` subscribes and unsubscribes `Framework.Update`, which is relevant to how queued work is handed back to the game thread
+
+This spec does not require copying XIVChat implementation details verbatim, but implementation planning should treat it as the local baseline for validating the native execution strategy and thread-handoff pattern.
+
 ## Native Interop Strategy
 
 The native chat path is a quarantined subsystem.
@@ -289,7 +305,13 @@ Constraints:
 - Framework-thread dispatch is mandatory before native execution
 - Native injection is validated first through a controlled slash command before being coupled to Telegram inbound traffic
 
-Implementation planning should include a verification step such as `/telebridge testinject <message>` to prove the execution path works safely on the main thread before enabling Telegram-driven injection.
+Implementation planning should include a verification step such as `/ffxivtelegram testinject <message>` to prove the execution path works safely on the main thread before enabling Telegram-driven injection.
+
+When planning this verification step, prefer matching the proven shape visible in the local XIVChat reference:
+
+- resolve the UI module from framework state
+- keep the unmanaged chat payload handling isolated
+- use framework-thread dispatch for any actual invocation of the native chat path
 
 ## Testing and Verification Strategy
 
@@ -334,6 +356,6 @@ These are not unresolved product questions, but implementation-planning details 
 
 - exact bounded sizes and expiration windows for the injection queue and reply map
 - exact text sanitization rules based on available game and Telegram constraints
-- exact command surface for diagnostics beyond `/telebridge` and test injection
+- exact command surface for diagnostics beyond `/ffxivtelegram` and test injection
 
 They should be resolved in the implementation plan, not by expanding MVP scope.
