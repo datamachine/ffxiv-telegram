@@ -9,16 +9,17 @@ public sealed class RouteResolver
         this.tagParser = tagParser ?? throw new ArgumentNullException(nameof(tagParser));
     }
 
-    public RouteResolution Resolve(string text, ChatRoute? replyRoute, ChatRoute? lastActiveRoute)
+    public RouteResolution Resolve(string text, ChatRoute? replyRoute, RouteContext context)
     {
         ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(context);
 
         if (string.IsNullOrWhiteSpace(text))
         {
             return RouteResolution.Failure("Route could not be resolved.");
         }
 
-        if (this.tagParser.TryParse(text, lastActiveRoute, out var tagged))
+        if (this.tagParser.TryParse(text, context.LastTellRoute, out var tagged))
         {
             if (!tagged.IsSuccess)
             {
@@ -38,11 +39,17 @@ public sealed class RouteResolver
             return RouteResolution.Success(replyRoute, text);
         }
 
-        if (lastActiveRoute is not null)
+        if (context.LastActiveRoute is not null)
         {
-            return RouteResolution.Success(lastActiveRoute, text);
+            return RouteResolution.Success(context.LastActiveRoute, text);
         }
 
         return RouteResolution.Failure("Route could not be resolved.");
+    }
+
+    public RouteResolution Resolve(string text, ChatRoute? replyRoute, ChatRoute? lastActiveRoute)
+    {
+        var lastTellRoute = lastActiveRoute is ChatRoute.TellRoute tellRoute ? tellRoute : null;
+        return this.Resolve(text, replyRoute, new RouteContext(lastActiveRoute, lastTellRoute));
     }
 }

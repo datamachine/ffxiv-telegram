@@ -91,27 +91,29 @@ public sealed class RouteResolverTests
     }
 
     [Fact]
-    public void SlashRFailsWhenNoTellTargetIsAvailable()
+    public void SlashRUsesStoredTellTargetEvenWhenLastActiveRouteIsParty()
     {
         var resolver = new RouteResolver(new RouteTagParser());
+        var context = new RouteContext(ChatRoute.Party(), ChatRoute.Tell("Alice"));
 
-        var result = resolver.Resolve("/r hello", replyRoute: null, lastActiveRoute: ChatRoute.Party());
+        var result = resolver.Resolve("/r hello", replyRoute: null, context);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal("Route could not be resolved.", result.ErrorMessage);
-        Assert.Null(result.Route);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ChatRoute.Tell("Alice"), result.Route);
+        Assert.Equal("hello", result.MessageText);
     }
 
     [Fact]
-    public void SlashRFailsWhenNoLastActiveRouteExists()
+    public void UntaggedInputFallsBackToGenericLastActiveRoute()
     {
         var resolver = new RouteResolver(new RouteTagParser());
+        var context = new RouteContext(ChatRoute.Party(), ChatRoute.Tell("Alice"));
 
-        var result = resolver.Resolve("/r hello", replyRoute: null, lastActiveRoute: null);
+        var result = resolver.Resolve("hello", replyRoute: null, context);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal("Route could not be resolved.", result.ErrorMessage);
-        Assert.Null(result.Route);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ChatRoute.Party(), result.Route);
+        Assert.Equal("hello", result.MessageText);
     }
 
     [Fact]
