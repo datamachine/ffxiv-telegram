@@ -46,10 +46,4 @@ public sealed class RouteResolver
 
         return RouteResolution.Failure("Route could not be resolved.");
     }
-
-    public RouteResolution Resolve(string text, ChatRoute? replyRoute, ChatRoute? lastActiveRoute)
-    {
-        var lastTellRoute = lastActiveRoute is ChatRoute.TellRoute tellRoute ? tellRoute : null;
-        return this.Resolve(text, replyRoute, new RouteContext(lastActiveRoute, lastTellRoute));
-    }
 }

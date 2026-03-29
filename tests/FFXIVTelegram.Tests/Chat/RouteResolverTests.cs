@@ -1,16 +1,31 @@
 namespace FFXIVTelegram.Tests.Chat;
 
 using FFXIVTelegram.Chat;
+using System.Linq;
+using System.Reflection;
 using Xunit;
 
 public sealed class RouteResolverTests
 {
     [Fact]
+    public void RouteResolverExposesOnlyTheContextBasedResolveOverload()
+    {
+        var publicResolveMethods = typeof(RouteResolver)
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+            .Where(method => method.Name == nameof(RouteResolver.Resolve))
+            .ToArray();
+
+        Assert.Single(publicResolveMethods);
+        Assert.Equal(3, publicResolveMethods[0].GetParameters().Length);
+        Assert.Equal(typeof(RouteContext), publicResolveMethods[0].GetParameters()[2].ParameterType);
+    }
+
+    [Fact]
     public void ExplicitTagWinsOverReplyAndLastActive()
     {
         var resolver = new RouteResolver(new RouteTagParser());
 
-        var result = resolver.Resolve("/fc hello", replyRoute: ChatRoute.Party(), lastActiveRoute: ChatRoute.Tell("Alice"));
+        var result = resolver.Resolve("/fc hello", replyRoute: ChatRoute.Party(), context: new RouteContext(ChatRoute.Party(), new ChatRoute.TellRoute("Alice")));
 
         Assert.Equal(ChatRoute.FreeCompany(), result.Route);
         Assert.Equal("hello", result.MessageText);
@@ -21,7 +36,7 @@ public sealed class RouteResolverTests
     {
         var resolver = new RouteResolver(new RouteTagParser());
 
-        var result = resolver.Resolve("/fc", replyRoute: ChatRoute.Party(), lastActiveRoute: ChatRoute.Tell("Alice"));
+        var result = resolver.Resolve("/fc", replyRoute: ChatRoute.Party(), context: new RouteContext(ChatRoute.Party(), new ChatRoute.TellRoute("Alice")));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Route could not be resolved.", result.ErrorMessage);
@@ -33,7 +48,7 @@ public sealed class RouteResolverTests
     {
         var resolver = new RouteResolver(new RouteTagParser());
 
-        var result = resolver.Resolve("   ", replyRoute: ChatRoute.Party(), lastActiveRoute: ChatRoute.Tell("Alice"));
+        var result = resolver.Resolve("   ", replyRoute: ChatRoute.Party(), context: new RouteContext(ChatRoute.Party(), new ChatRoute.TellRoute("Alice")));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Route could not be resolved.", result.ErrorMessage);
@@ -47,7 +62,7 @@ public sealed class RouteResolverTests
     {
         var resolver = new RouteResolver(new RouteTagParser());
 
-        var result = resolver.Resolve(text, replyRoute: ChatRoute.Party(), lastActiveRoute: ChatRoute.Tell("Alice"));
+        var result = resolver.Resolve(text, replyRoute: ChatRoute.Party(), context: new RouteContext(ChatRoute.Party(), new ChatRoute.TellRoute("Alice")));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Route could not be resolved.", result.ErrorMessage);
@@ -59,7 +74,7 @@ public sealed class RouteResolverTests
     {
         var resolver = new RouteResolver(new RouteTagParser());
 
-        var result = resolver.Resolve("hello back", replyRoute: ChatRoute.Party(), lastActiveRoute: ChatRoute.Tell("Alice"));
+        var result = resolver.Resolve("hello back", replyRoute: ChatRoute.Party(), context: new RouteContext(ChatRoute.Party(), new ChatRoute.TellRoute("Alice")));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ChatRoute.Party(), result.Route);
@@ -71,7 +86,7 @@ public sealed class RouteResolverTests
     {
         var resolver = new RouteResolver(new RouteTagParser());
 
-        var result = resolver.Resolve("hello back", replyRoute: null, lastActiveRoute: ChatRoute.Tell("Alice"));
+        var result = resolver.Resolve("hello back", replyRoute: null, context: new RouteContext(new ChatRoute.TellRoute("Alice"), new ChatRoute.TellRoute("Alice")));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ChatRoute.Tell("Alice"), result.Route);
@@ -83,7 +98,7 @@ public sealed class RouteResolverTests
     {
         var resolver = new RouteResolver(new RouteTagParser());
 
-        var result = resolver.Resolve("/r hello", replyRoute: null, lastActiveRoute: ChatRoute.Tell("Alice"));
+        var result = resolver.Resolve("/r hello", replyRoute: null, context: new RouteContext(new ChatRoute.TellRoute("Alice"), new ChatRoute.TellRoute("Alice")));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ChatRoute.Tell("Alice"), result.Route);
@@ -94,7 +109,7 @@ public sealed class RouteResolverTests
     public void SlashRUsesStoredTellTargetEvenWhenLastActiveRouteIsParty()
     {
         var resolver = new RouteResolver(new RouteTagParser());
-        var context = new RouteContext(ChatRoute.Party(), ChatRoute.Tell("Alice"));
+        var context = new RouteContext(ChatRoute.Party(), new ChatRoute.TellRoute("Alice"));
 
         var result = resolver.Resolve("/r hello", replyRoute: null, context);
 
@@ -107,7 +122,7 @@ public sealed class RouteResolverTests
     public void UntaggedInputFallsBackToGenericLastActiveRoute()
     {
         var resolver = new RouteResolver(new RouteTagParser());
-        var context = new RouteContext(ChatRoute.Party(), ChatRoute.Tell("Alice"));
+        var context = new RouteContext(ChatRoute.Party(), new ChatRoute.TellRoute("Alice"));
 
         var result = resolver.Resolve("hello", replyRoute: null, context);
 
@@ -121,7 +136,7 @@ public sealed class RouteResolverTests
     {
         var resolver = new RouteResolver(new RouteTagParser());
 
-        var result = resolver.Resolve("/guild hello", replyRoute: ChatRoute.Party(), lastActiveRoute: ChatRoute.Tell("Alice"));
+        var result = resolver.Resolve("/guild hello", replyRoute: ChatRoute.Party(), context: new RouteContext(ChatRoute.Party(), new ChatRoute.TellRoute("Alice")));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Route tag unsupported.", result.ErrorMessage);
@@ -133,7 +148,7 @@ public sealed class RouteResolverTests
     {
         var resolver = new RouteResolver(new RouteTagParser());
 
-        var result = resolver.Resolve("hello", replyRoute: null, lastActiveRoute: null);
+        var result = resolver.Resolve("hello", replyRoute: null, context: new RouteContext(null, null));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Route could not be resolved.", result.ErrorMessage);

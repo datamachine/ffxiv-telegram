@@ -2,7 +2,7 @@ namespace FFXIVTelegram.Chat;
 
 public sealed class RouteTagParser
 {
-    public bool TryParse(string text, ChatRoute? lastActiveTellRoute, out RouteResolution resolution)
+    public bool TryParse(string text, ChatRoute.TellRoute? lastActiveTellRoute, out RouteResolution resolution)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -26,7 +26,7 @@ public sealed class RouteTagParser
                 resolution = RouteResolution.Success(ChatRoute.Party(), messageText);
                 return true;
             case "/r":
-                if (lastActiveTellRoute is not ChatRoute.TellRoute)
+                if (lastActiveTellRoute is null)
                 {
                     resolution = RouteResolution.Failure("Route could not be resolved.");
                     return true;
