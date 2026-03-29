@@ -139,6 +139,41 @@ dotnet test tests/FFXIVTelegram.Tests/FFXIVTelegram.Tests.csproj -v minimal
 
 The plugin project is at [src/FFXIVTelegram/FFXIVTelegram.csproj](src/FFXIVTelegram/FFXIVTelegram.csproj), and the plugin manifest is at [src/FFXIVTelegram/FFXIVTelegram.json](src/FFXIVTelegram/FFXIVTelegram.json).
 
+## Rider Setup
+
+This repo now includes shared Rider run configurations under [.run](.run):
+
+- `Build Solution`
+- `Test Suite`
+- `Build And Test`
+
+They use Rider's shared project-file run configuration support and the bundled Shell Script plugin. If you are using Rider on Windows, point Rider's shell support at a working `bash` interpreter such as Git Bash or WSL before running these configs.
+
+Recommended Rider workflow:
+
+1. Open [FFXIVTelegram.sln](FFXIVTelegram.sln).
+2. Let Rider restore NuGet packages and index the solution.
+3. Use `Build Solution` for plugin builds.
+4. Use `Test Suite` for the full xUnit run.
+5. Use `Build And Test` when you want a one-click verification pass.
+
+### Rider Debugging
+
+The plugin runs inside the live `ffxiv_dx11.exe` process through Dalamud, so there is no portable project file that can fully automate debugging from Rider.
+
+Use this flow instead:
+
+1. Build the plugin from Rider.
+2. Launch FFXIV through XIVLauncher with Dalamud enabled and load the plugin.
+3. In Rider, use `Run | Attach to Process` and attach the `.NET` debugger to `ffxiv_dx11.exe`.
+4. If you want Rider waiting before the game process starts, use `Run | Attach to an Unstarted Process` and watch for `ffxiv_dx11.exe`.
+
+JetBrains documentation used for this setup:
+
+- shared run/debug configurations: <https://www.jetbrains.com/help/rider/Run_Debug_Configuration.html>
+- shell script run/debug configurations: <https://www.jetbrains.com/help/rider/Run_Debug_Configuration_Shell_Script.html>
+- attach to process and attach to an unstarted process: <https://www.jetbrains.com/help/rider/attach-to-process.html>
+
 ## Development Notes
 
 - Target framework: `.NET 10`
