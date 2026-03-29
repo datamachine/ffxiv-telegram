@@ -22,9 +22,16 @@ public sealed class TelegramBridgeService
 
     public FfxivTelegramConfiguration Configuration { get; }
 
-    public TelegramConnectionState ConnectionState => this.hasTransportError
-        ? TelegramConnectionState.Error
-        : this.ResolveConnectionState(this.Configuration);
+    public TelegramConnectionState ConnectionState
+    {
+        get
+        {
+            var liveState = this.ResolveConnectionState(this.Configuration);
+            return liveState == TelegramConnectionState.Connected && this.hasTransportError
+                ? TelegramConnectionState.Error
+                : liveState;
+        }
+    }
 
     public async Task<TelegramPollResult> PollOnceAsync(CancellationToken cancellationToken)
     {
@@ -146,9 +153,26 @@ public sealed class TelegramBridgeService
             return TelegramSendResult.Failure("no authorized chat yet");
         }
 
-        var result = await this.clientAdapter.SendTextAsync(chatId.Value, text, cancellationToken).ConfigureAwait(false);
-        this.hasTransportError = false;
-        return result;
+        try
+        {
+            var result = await this.clientAdapter.SendTextAsync(chatId.Value, text, cancellationToken).ConfigureAwait(false);
+            this.hasTransportError = false;
+            return result;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            this.hasTransportError = true;
+            throw;
+        }
+        catch
+        {
+            this.hasTransportError = true;
+            throw;
+        }
     }
 
     private async Task<TelegramInboundMessage?> HandleIncomingUpdateAsync(TelegramUpdate update, CancellationToken cancellationToken)

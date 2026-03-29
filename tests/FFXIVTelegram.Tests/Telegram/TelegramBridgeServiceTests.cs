@@ -41,6 +41,23 @@ public sealed class TelegramBridgeServiceTests
     }
 
     [Fact]
+    public async Task ConnectionStateRecoversFromTransportErrorWhenConfigurationChanges()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42, adapterThrowsTaskCanceledOnPoll: true);
+
+        await Assert.ThrowsAsync<TaskCanceledException>(
+            () => fixture.Service.PollOnceAsync(CancellationToken.None));
+        Assert.Equal(TelegramConnectionState.Error, fixture.Service.ConnectionState);
+
+        fixture.Service.Configuration.TelegramBotToken = string.Empty;
+        Assert.Equal(TelegramConnectionState.NotConfigured, fixture.Service.ConnectionState);
+
+        fixture.Service.Configuration.TelegramBotToken = "token";
+        fixture.Service.Configuration.AuthorizedChatId = null;
+        Assert.Equal(TelegramConnectionState.WaitingForStart, fixture.Service.ConnectionState);
+    }
+
+    [Fact]
     public async Task StartAuthorizationRollsBackWhenSaveFails()
     {
         var fixture = this.CreateService(saveThrows: true);
@@ -125,7 +142,7 @@ public sealed class TelegramBridgeServiceTests
     [Fact]
     public async Task PollOncePropagatesAdapterCancellationWhenCallerDidNotCancel()
     {
-        var fixture = this.CreateService(authorizedChatId: 42, adapterThrowsTaskCanceled: true);
+        var fixture = this.CreateService(authorizedChatId: 42, adapterThrowsTaskCanceledOnPoll: true);
 
         var exception = await Assert.ThrowsAsync<TaskCanceledException>(
             () => fixture.Service.PollOnceAsync(CancellationToken.None));
@@ -173,6 +190,30 @@ public sealed class TelegramBridgeServiceTests
         Assert.Null(result.MessageId);
         Assert.Equal("bot token not configured", result.ErrorMessage);
         Assert.Equal(0, fixture.Adapter.SendCallCount);
+    }
+
+    [Fact]
+    public async Task SendToAuthorizedChatAdapterFailureSetsConnectionStateToError()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42, adapterThrowsTaskCanceledOnSend: true);
+
+        await Assert.ThrowsAsync<TaskCanceledException>(
+            () => fixture.Service.SendToAuthorizedChatAsync("hello"));
+
+        Assert.Equal(TelegramConnectionState.Error, fixture.Service.ConnectionState);
+    }
+
+    [Fact]
+    public async Task SendToAuthorizedChatCancellationByCallerDoesNotSetError()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42);
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => fixture.Service.SendToAuthorizedChatAsync("hello", cancellationTokenSource.Token));
+
+        Assert.Equal(TelegramConnectionState.Connected, fixture.Service.ConnectionState);
     }
 
     [Fact]
@@ -225,7 +266,8 @@ public sealed class TelegramBridgeServiceTests
         string telegramBotToken = "token",
         TelegramSendResult? sendResult = null,
         bool saveThrows = false,
-        bool adapterThrowsTaskCanceled = false,
+        bool adapterThrowsTaskCanceledOnPoll = false,
+        bool adapterThrowsTaskCanceledOnSend = false,
         params IReadOnlyList<TelegramUpdate>[] updateBatches)
     {
         var configuration = new FfxivTelegramConfiguration
@@ -239,7 +281,8 @@ public sealed class TelegramBridgeServiceTests
         var adapter = new StubTelegramClientAdapter(updateBatches)
         {
             SendResult = sendResult ?? TelegramSendResult.Ok(123),
-            ThrowTaskCanceledOnPoll = adapterThrowsTaskCanceled,
+            ThrowTaskCanceledOnPoll = adapterThrowsTaskCanceledOnPoll,
+            ThrowTaskCanceledOnSend = adapterThrowsTaskCanceledOnSend,
         };
         var service = new TelegramBridgeService(configuration, adapter, store);
 
@@ -275,6 +318,8 @@ public sealed class TelegramBridgeServiceTests
 
         public bool ThrowTaskCanceledOnPoll { get; set; }
 
+        public bool ThrowTaskCanceledOnSend { get; set; }
+
         public Task<IReadOnlyList<TelegramUpdate>> GetUpdatesAsync(long offset, CancellationToken cancellationToken)
         {
             this.RequestedOffsets.Add(offset);
@@ -299,6 +344,14 @@ public sealed class TelegramBridgeServiceTests
             this.SendCallCount++;
             this.LastSendChatId = chatId;
             this.LastSendText = text;
+
+            if (this.ThrowTaskCanceledOnSend)
+            {
+                throw new TaskCanceledException("adapter timeout");
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
             return Task.FromResult(this.SendResult);
         }
     }
