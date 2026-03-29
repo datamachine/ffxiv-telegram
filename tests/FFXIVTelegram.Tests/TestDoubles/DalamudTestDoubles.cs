@@ -1,6 +1,7 @@
 namespace FFXIVTelegram.Tests.TestDoubles;
 
 using System.Reflection;
+using Dalamud.Game.Command;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Configuration;
@@ -143,5 +144,40 @@ internal class ChatGuiTestDouble : DispatchProxy
     public void RaiseChatMessage(XivChatType type, int timestamp, SeString sender, SeString message, ref bool isHandled)
     {
         this.chatMessage?.Invoke(type, timestamp, ref sender, ref message, ref isHandled);
+    }
+}
+
+internal class CommandManagerTestDouble : DispatchProxy
+{
+    private readonly Dictionary<string, CommandInfo> handlers = new(StringComparer.Ordinal);
+
+    public IReadOnlyDictionary<string, CommandInfo> Handlers => this.handlers;
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        if (targetMethod == null)
+        {
+            throw new ArgumentNullException(nameof(targetMethod));
+        }
+
+        switch (targetMethod.Name)
+        {
+            case "AddHandler":
+                var command = (string)args![0]!;
+                var info = (CommandInfo)args[1]!;
+                this.handlers[command] = info;
+                return true;
+            case "RemoveHandler":
+                return this.handlers.Remove((string)args![0]!);
+            default:
+                throw new NotSupportedException(targetMethod.Name);
+        }
+    }
+
+    public static ICommandManager Create(out CommandManagerTestDouble proxy)
+    {
+        var commandManager = DispatchProxy.Create<ICommandManager, CommandManagerTestDouble>();
+        proxy = (CommandManagerTestDouble)(object)commandManager;
+        return commandManager;
     }
 }
