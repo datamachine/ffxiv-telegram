@@ -1,23 +1,35 @@
 namespace FFXIVTelegram.Chat;
 
 using Dalamud.Game.Text;
+using Dalamud.Game.Text.SeStringHandling;
+using Dalamud.Plugin.Services;
+using FFXIVTelegram.Configuration;
 using FFXIVTelegram.Telegram;
 
 public sealed class GameChatMonitor : IDisposable
 {
+    private readonly IChatGui chatGui;
+    private readonly FfxivTelegramConfiguration configuration;
+    private readonly TelegramBridgeService telegramBridge;
     private readonly TelegramReplyMap replyMap;
-    private TelegramBridgeService? telegramBridge;
+    private ChatRoute? lastActiveRoute;
+    private ChatRoute.TellRoute? lastTellRoute;
 
-    public GameChatMonitor(TelegramReplyMap replyMap)
+    public GameChatMonitor(
+        IChatGui chatGui,
+        FfxivTelegramConfiguration configuration,
+        TelegramBridgeService telegramBridge,
+        TelegramReplyMap replyMap)
     {
+        this.chatGui = chatGui ?? throw new ArgumentNullException(nameof(chatGui));
+        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        this.telegramBridge = telegramBridge ?? throw new ArgumentNullException(nameof(telegramBridge));
         this.replyMap = replyMap ?? throw new ArgumentNullException(nameof(replyMap));
+
+        this.chatGui.ChatMessage += this.OnChatMessage;
     }
 
-    public TelegramBridgeService? TelegramBridge
-    {
-        get => this.telegramBridge;
-        set => this.telegramBridge = value;
-    }
+    public RouteContext CurrentRouteContext => RouteContext.FromState(this.lastActiveRoute, this.lastTellRoute);
 
     public async Task<TelegramSendResult?> ForwardAsync(
         XivChatType type,
@@ -31,9 +43,11 @@ public sealed class GameChatMonitor : IDisposable
             return null;
         }
 
-        if (this.telegramBridge is null)
+        this.UpdateRouteContext(forwarded.Route);
+
+        if (!this.IsForwardingEnabled(forwarded.Route))
         {
-            throw new InvalidOperationException("Telegram bridge is not configured.");
+            return null;
         }
 
         var sendResult = await this.telegramBridge.SendToAuthorizedChatAsync(forwarded.Text, cancellationToken).ConfigureAwait(false);
@@ -47,5 +61,40 @@ public sealed class GameChatMonitor : IDisposable
 
     public void Dispose()
     {
+        this.chatGui.ChatMessage -= this.OnChatMessage;
+    }
+
+    private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+    {
+        _ = this.ForwardSafelyAsync(type, sender.TextValue, message.TextValue, CancellationToken.None);
+    }
+
+    private async Task ForwardSafelyAsync(XivChatType type, string sender, string message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await this.ForwardAsync(type, sender, message, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Chat forwarding is best-effort from the event hook.
+        }
+    }
+
+    private bool IsForwardingEnabled(ChatRoute route)
+    {
+        return route switch
+        {
+            ChatRoute.TellRoute => this.configuration.EnableTellForwarding,
+            ChatRoute.PartyRoute => this.configuration.EnablePartyForwarding,
+            ChatRoute.FreeCompanyRoute => this.configuration.EnableFreeCompanyForwarding,
+            _ => false,
+        };
+    }
+
+    private void UpdateRouteContext(ChatRoute route)
+    {
+        this.lastActiveRoute = route;
+        this.lastTellRoute = route as ChatRoute.TellRoute ?? this.lastTellRoute;
     }
 }

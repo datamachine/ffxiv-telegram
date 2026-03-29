@@ -1,9 +1,12 @@
 namespace FFXIVTelegram.Tests.TestDoubles;
 
 using System.Reflection;
+using Dalamud.Game.Text;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Configuration;
 using Dalamud.Interface;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 
 internal class DalamudPluginInterfaceTestDouble : DispatchProxy
 {
@@ -101,5 +104,44 @@ internal class UiBuilderTestDouble : DispatchProxy
     public void RaiseOpenConfigUi()
     {
         this.openConfigUi?.Invoke();
+    }
+}
+
+internal class ChatGuiTestDouble : DispatchProxy
+{
+    private IChatGui.OnMessageDelegate? chatMessage;
+
+    public int ChatMessageSubscriberCount => this.chatMessage?.GetInvocationList().Length ?? 0;
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        if (targetMethod == null)
+        {
+            throw new ArgumentNullException(nameof(targetMethod));
+        }
+
+        switch (targetMethod.Name)
+        {
+            case "add_ChatMessage":
+                this.chatMessage += (IChatGui.OnMessageDelegate?)args?[0];
+                return null;
+            case "remove_ChatMessage":
+                this.chatMessage -= (IChatGui.OnMessageDelegate?)args?[0];
+                return null;
+            default:
+                throw new NotSupportedException(targetMethod.Name);
+        }
+    }
+
+    public static IChatGui Create(out ChatGuiTestDouble proxy)
+    {
+        var chatGui = DispatchProxy.Create<IChatGui, ChatGuiTestDouble>();
+        proxy = (ChatGuiTestDouble)(object)chatGui;
+        return chatGui;
+    }
+
+    public void RaiseChatMessage(XivChatType type, int timestamp, SeString sender, SeString message, ref bool isHandled)
+    {
+        this.chatMessage?.Invoke(type, timestamp, ref sender, ref message, ref isHandled);
     }
 }
