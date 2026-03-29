@@ -27,6 +27,17 @@ public sealed class TelegramBridgeServiceTests
         Assert.Equal(TelegramInboundResult.IgnoredUnauthorizedChat, result);
     }
 
+    [Fact]
+    public async Task RejectsNonPrivateStartWithoutClaimingAuthorization()
+    {
+        var service = this.CreateService();
+        var result = await service.HandleIncomingTextAsync(chatId: 42, isPrivateChat: false, text: "/start");
+
+        Assert.Equal(TelegramInboundResult.IgnoredUnsupportedChatType, result);
+        Assert.Null(service.Configuration.AuthorizedChatId);
+        Assert.Equal(TelegramConnectionState.WaitingForStart, service.ConnectionState);
+    }
+
     private TelegramBridgeService CreateService(long? authorizedChatId = null)
     {
         var configuration = new FfxivTelegramConfiguration
