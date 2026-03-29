@@ -132,6 +132,7 @@ public sealed class TelegramBridgeService
             return Task.FromResult(TelegramInboundResult.IgnoredUnauthorizedChat);
         }
 
+        this.transportErrorContext = null;
         return Task.FromResult(TelegramInboundResult.Accepted);
     }
 

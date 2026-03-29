@@ -58,6 +58,21 @@ public sealed class TelegramBridgeServiceTests
     }
 
     [Fact]
+    public async Task SuccessfulDirectInboundClearsTransportErrorSnapshot()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42, adapterThrowsTaskCanceledOnPoll: true);
+
+        await Assert.ThrowsAsync<TaskCanceledException>(
+            () => fixture.Service.PollOnceAsync(CancellationToken.None));
+        Assert.Equal(TelegramConnectionState.Error, fixture.Service.ConnectionState);
+
+        var result = await fixture.Service.HandleIncomingTextAsync(chatId: 42, isPrivateChat: true, text: "hello");
+
+        Assert.Equal(TelegramInboundResult.Accepted, result);
+        Assert.Equal(TelegramConnectionState.Connected, fixture.Service.ConnectionState);
+    }
+
+    [Fact]
     public async Task PollFailureBeforeAuthorizationReportsError()
     {
         var fixture = this.CreateService(adapterThrowsTaskCanceledOnPoll: true);
