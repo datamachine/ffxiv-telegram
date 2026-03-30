@@ -7,6 +7,15 @@ using Xunit;
 public sealed class PluginPackagingTests
 {
     [Fact]
+    public void SolutionDoesNotReferenceReleaseToolProject()
+    {
+        var solutionPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../FFXIVTelegram.sln"));
+        var solutionText = File.ReadAllText(solutionPath);
+
+        Assert.DoesNotContain("FFXIVTelegram.ReleaseTool", solutionText);
+    }
+
+    [Fact]
     public void PluginDoesNotBundleDalamudBindingsImGui()
     {
         var outputDirectory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../src/FFXIVTelegram/bin/Debug"));
