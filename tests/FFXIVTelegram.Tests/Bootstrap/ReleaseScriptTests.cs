@@ -10,6 +10,9 @@ public sealed class ReleaseScriptTests
     private static readonly string RepoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
     private static readonly string ScriptPath = Path.Combine(RepoRoot, "scripts", "release", "build-release.sh");
     private static readonly string BashPath = ResolveRequiredCommandPath("bash");
+    private static readonly string? ZipPath = TryResolveCommandPath("zip");
+    private static readonly string? BsdtarPath = TryResolveCommandPath("bsdtar");
+    private static readonly string? Python3Path = TryResolveCommandPath("python3");
     private static readonly string[] RequiredScriptCommands =
     [
         "bash",
@@ -278,17 +281,32 @@ public sealed class ReleaseScriptTests
 
         if (includeBsdtar)
         {
-            File.CreateSymbolicLink(
-                Path.Combine(toolDirectory, "bsdtar"),
-                ResolveRequiredCommandPath("bsdtar"));
+            WriteBsdtarShim(toolDirectory);
         }
 
         if (includeZipShim)
         {
-            var zipShimPath = Path.Combine(toolDirectory, "zip");
-            File.WriteAllText(
+            WriteZipShim(toolDirectory);
+        }
+
+        return toolDirectory;
+    }
+
+    private static void WriteZipShim(string toolDirectory)
+    {
+        var zipShimPath = Path.Combine(toolDirectory, "zip");
+
+        if (ZipPath is not null)
+        {
+            File.CreateSymbolicLink(zipShimPath, ZipPath);
+            return;
+        }
+
+        if (BsdtarPath is not null)
+        {
+            WriteExecutableScript(
                 zipShimPath,
-                """
+                $$"""
                 #!/usr/bin/env bash
                 set -euo pipefail
 
@@ -299,23 +317,126 @@ public sealed class ReleaseScriptTests
                 archive_path="$1"
                 shift
 
-                exec bsdtar -a -cf "$archive_path" "$@"
-                """,
-                new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            if (!OperatingSystem.IsWindows())
-            {
-                File.SetUnixFileMode(
-                    zipShimPath,
-                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
-                    UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
-                    UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
-            }
+                exec "{{BsdtarPath}}" -a -cf "$archive_path" "$@"
+                """);
+            return;
         }
 
-        return toolDirectory;
+        if (Python3Path is not null)
+        {
+            WriteExecutableScript(
+                zipShimPath,
+                $$"""
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                if [[ "${1:-}" == "-q" ]]; then
+                  shift
+                fi
+
+                archive_path="$1"
+                shift
+
+                exec "{{Python3Path}}" - "$archive_path" "$@" <<'PY'
+                import sys
+                import zipfile
+
+                archive_path = sys.argv[1]
+                files = sys.argv[2:]
+
+                with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                    for file_name in files:
+                        archive.write(file_name, arcname=file_name)
+                PY
+                """);
+            return;
+        }
+
+        throw new InvalidOperationException("Could not create a zip shim because neither zip, bsdtar, nor python3 is available.");
+    }
+
+    private static void WriteBsdtarShim(string toolDirectory)
+    {
+        var bsdtarShimPath = Path.Combine(toolDirectory, "bsdtar");
+
+        if (BsdtarPath is not null)
+        {
+            File.CreateSymbolicLink(bsdtarShimPath, BsdtarPath);
+            return;
+        }
+
+        if (ZipPath is not null)
+        {
+            WriteExecutableScript(
+                bsdtarShimPath,
+                $$"""
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                [[ "${1:-}" == "-a" ]] || exit 2
+                [[ "${2:-}" == "-cf" ]] || exit 2
+
+                archive_path="$3"
+                shift 3
+
+                exec "{{ZipPath}}" -q "$archive_path" "$@"
+                """);
+            return;
+        }
+
+        if (Python3Path is not null)
+        {
+            WriteExecutableScript(
+                bsdtarShimPath,
+                $$"""
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                [[ "${1:-}" == "-a" ]] || exit 2
+                [[ "${2:-}" == "-cf" ]] || exit 2
+
+                archive_path="$3"
+                shift 3
+
+                exec "{{Python3Path}}" - "$archive_path" "$@" <<'PY'
+                import sys
+                import zipfile
+
+                archive_path = sys.argv[1]
+                files = sys.argv[2:]
+
+                with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                    for file_name in files:
+                        archive.write(file_name, arcname=file_name)
+                PY
+                """);
+            return;
+        }
+
+        throw new InvalidOperationException("Could not create a bsdtar shim because neither bsdtar, zip, nor python3 is available.");
+    }
+
+    private static void WriteExecutableScript(string path, string contents)
+    {
+        File.WriteAllText(path, contents, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                path,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        }
     }
 
     private static string ResolveRequiredCommandPath(string command)
+    {
+        return TryResolveCommandPath(command)
+            ?? throw new InvalidOperationException($"Could not resolve required command '{command}' from PATH.");
+    }
+
+    private static string? TryResolveCommandPath(string command)
     {
         var pathEntries = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -329,7 +450,7 @@ public sealed class ReleaseScriptTests
             }
         }
 
-        throw new InvalidOperationException($"Could not resolve required command '{command}' from PATH.");
+        return null;
     }
 
     private sealed record ReleaseScriptResult(int ExitCode, string StandardOutput, string StandardError)
