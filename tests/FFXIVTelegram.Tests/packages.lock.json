@@ -109,6 +109,9 @@
         "dependencies": {
           "DalamudPackager": "[14.0.2, )"
         }
+      },
+      "ffxivtelegram.releasetool": {
+        "type": "Project"
       }
     }
   }

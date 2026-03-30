@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FFXIVTelegram\FFXIVTelegram.csproj" />
+    <ProjectReference Include="..\..\tools\FFXIVTelegram.ReleaseTool\FFXIVTelegram.ReleaseTool.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

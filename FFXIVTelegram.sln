@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FFXIVTelegram", "src\FFXIVT
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FFXIVTelegram.Tests", "tests\FFXIVTelegram.Tests\FFXIVTelegram.Tests.csproj", "{21EED3EB-2C1B-4C5C-A47C-DA4166F871AD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FFXIVTelegram.ReleaseTool", "tools\FFXIVTelegram.ReleaseTool\FFXIVTelegram.ReleaseTool.csproj", "{9C4D7CF0-25B1-4C22-BB34-ACD4E767FD35}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,5 +22,9 @@ Global
 		{21EED3EB-2C1B-4C5C-A47C-DA4166F871AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{21EED3EB-2C1B-4C5C-A47C-DA4166F871AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{21EED3EB-2C1B-4C5C-A47C-DA4166F871AD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9C4D7CF0-25B1-4C22-BB34-ACD4E767FD35}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9C4D7CF0-25B1-4C22-BB34-ACD4E767FD35}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9C4D7CF0-25B1-4C22-BB34-ACD4E767FD35}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9C4D7CF0-25B1-4C22-BB34-ACD4E767FD35}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
