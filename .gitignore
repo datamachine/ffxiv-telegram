@@ -10,3 +10,4 @@ packages/
 artifacts/
 publish/
 *.nupkg
+docs/superpowers/
