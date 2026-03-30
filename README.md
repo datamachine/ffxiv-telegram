@@ -1,193 +1,91 @@
 # FFXIV Telegram
 
-`FFXIV Telegram` is a Dalamud plugin for Final Fantasy XIV that bridges selected in-game chat channels with a Telegram bot.
+FFXIV Telegram bridges selected Final Fantasy XIV chat channels with a Telegram bot so you can read and answer supported messages from one private Telegram chat.
 
-It can:
+Maintained by Surye. Contact: `surye@datamachine.net`
 
-- forward supported in-game chat to Telegram
-- accept Telegram messages from one authorized private chat
-- inject those messages back into the game client through the native chat path
+## Install In Dalamud
 
-The current MVP supports:
+Custom repo URL:
+
+```text
+https://datamachine.github.io/ffxiv-telegram/repo.json
+```
+
+1. Launch the game through XIVLauncher with Dalamud enabled.
+2. Open the Dalamud Plugin Installer with `/xlplugins`.
+3. Open the installer settings and find `Custom Plugin Repositories`.
+4. Add `https://datamachine.github.io/ffxiv-telegram/repo.json`.
+5. Refresh the plugin list, search for `FFXIV Telegram`, and install it.
+
+## Telegram Setup
+
+1. Create a bot with `@BotFather` and copy the bot token.
+2. Start a private 1:1 Telegram chat with that bot.
+3. Open the FFXIV Telegram configuration window from the Dalamud plugin list or with `/ffxivtelegram`.
+4. Paste the token into `Telegram bot token`.
+5. Wait for the plugin to show `WaitingForStart`.
+6. Send `/start` to the bot from the same private chat you want to authorize.
+7. Confirm the plugin now shows `Connected`.
+
+Changing the bot token clears the authorized chat and requires a new `/start`.
+
+## Supported Routes
+
+Forwarding from game to Telegram is available for:
 
 - `Tell`
 - `Party`
 - `Free Company`
 
-## Status
+Sending messages from Telegram back to the game supports:
 
-This repository currently contains the source code for the plugin. It is not packaged or published from this repo automatically.
+- `/p hello` for party chat
+- `/fc hello` for free company chat
+- `/r hello` to reply to the most recent tell target known to the plugin
 
-## Requirements
+Telegram replies also preserve route context:
 
-- Windows with Final Fantasy XIV and XIVLauncher/Dalamud
-- .NET 10 SDK for local builds
-- a Telegram bot token
-- a private Telegram chat with that bot
+- reply to a forwarded tell to answer that tell target
+- reply to a forwarded party message to send to party chat
+- reply to a forwarded free company message to send to free company chat
 
-## What It Does
+If you send untagged text that is not a Telegram reply, the plugin falls back to the last active in-game route it knows about.
 
-Outbound, game to Telegram:
+## Privacy And Single-User Behavior
 
-- watches supported chat channels in game
-- formats them as plain text such as `[FC] <Player Name>: Hello`
-- sends them to the authorized Telegram chat
-- stores reply context so Telegram replies can route back correctly
-
-Inbound, Telegram to game:
-
-- accepts messages from one authorized private Telegram chat only
-- resolves the route in this order:
-  1. explicit tag such as `/p`, `/fc`, or `/r`
-  2. reply-to context from a forwarded Telegram message
-  3. last active in-game route
-- injects the resolved message on the framework thread
-- spaces injected messages by about `500ms`
-
-## Security Model
-
-- Only private 1:1 Telegram chats are accepted.
-- Group chats and channel posts are ignored.
-- The first valid `/start` claims the authorized Telegram `ChatId`.
+- The plugin accepts messages from one authorized private Telegram chat only.
+- Telegram groups and channels are ignored.
+- The first valid `/start` claims the authorized chat for the current bot token.
 - Messages from any other Telegram chat are ignored.
-- Changing the bot token clears the authorized chat and requires a new `/start`.
-
-## Telegram Setup
-
-1. Create a Telegram bot with `@BotFather`.
-2. Copy the bot token.
-3. Start a private chat with your bot in Telegram.
-4. Load the plugin in Dalamud.
-5. Open the plugin configuration window from the Dalamud plugin list.
-6. Paste the bot token into `Telegram bot token`.
-7. Wait for the connection state to show `WaitingForStart`.
-8. Send `/start` to the bot from the same private chat you want to use.
-9. Confirm the plugin shows `Connected`.
-
-## Using the Plugin
-
-### Forwarding to Telegram
-
-Enable or disable forwarding for:
-
-- tells
-- party chat
-- free company chat
-
-When forwarding is enabled, supported messages are sent to Telegram automatically.
-
-### Sending Messages Back to Game
-
-You can send Telegram messages in three ways:
-
-- send `/p hello` to speak in party chat
-- send `/fc hello` to speak in free company chat
-- send `/r hello` to reply to the most recent tell target known to the plugin
-
-You can also reply directly to a forwarded Telegram message:
-
-- replying to a forwarded tell routes back to that tell target
-- replying to a forwarded party message routes to party chat
-- replying to a forwarded free company message routes to free company chat
-
-If you send untagged text and it is not a Telegram reply, the plugin falls back to the last active in-game route it knows about.
-
-## Slash Command
-
-The plugin registers:
-
-- `/ffxivtelegram`
-
-Current debug subcommand:
-
-- `/ffxivtelegram testinject <text>`
-
-This bypasses Telegram and sends raw text into the native chat execution path for local validation.
-
-## Connection States
-
-The configuration window reports one of these states:
-
-- `NotConfigured`: no bot token is set
-- `WaitingForStart`: token is set, but no Telegram chat has been authorized yet
-- `Connected`: token is set and one private chat is authorized
-- `Error`: the plugin hit a Telegram transport error with the current configuration
-
-## Limitations
-
-- Only `Tell`, `Party`, and `Free Company` are supported in the MVP.
-- Only one Telegram chat is authorized at a time.
-- Failed sends and failed injections are dropped; there is no persistent retry queue.
 - Telegram traffic is plain text only.
-- The plugin relies on native chat injection and should be treated as a power-user/developer plugin, not a casual utility.
+- There is no persistent retry queue for failed sends or failed in-game injections.
 
-## Building From Source
+Do not share your bot token. Public releases do not include any user token, chat ID, or runtime chat history.
 
-1. Install the .NET 10 SDK.
-2. Ensure your local Dalamud development environment is available for `Dalamud.NET.Sdk`.
-3. Build the solution:
+## Maintainer Release Flow
 
-```bash
-dotnet build FFXIVTelegram.sln -v minimal
-```
+Use stable tags only: `vX.Y.Z`
 
-4. Run tests:
+Build, verify, and generate release artifacts locally:
 
 ```bash
+dotnet build FFXIVTelegram.sln -c Release -v minimal
 dotnet test tests/FFXIVTelegram.Tests/FFXIVTelegram.Tests.csproj -v minimal
+dotnet build src/FFXIVTelegram/FFXIVTelegram.csproj -c Release -o artifacts/plugin-release -v minimal
+bash scripts/release/build-release.sh --tag vX.Y.Z --input artifacts/plugin-release --output artifacts/release
 ```
 
-The plugin project is at [src/FFXIVTelegram/FFXIVTelegram.csproj](src/FFXIVTelegram/FFXIVTelegram.csproj), and the plugin manifest is at [src/FFXIVTelegram/FFXIVTelegram.json](src/FFXIVTelegram/FFXIVTelegram.json).
+Expected local outputs:
 
-## Rider Setup
+- `artifacts/release/FFXIVTelegram-X.Y.Z.zip`
+- `artifacts/release/repo.json`
 
-This repo now includes shared Rider run configurations under [.run](.run):
+After local verification, publish with a stable tag:
 
-- `Build Solution`
-- `Test Suite`
-- `Build And Test`
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
 
-They use Rider's shared project-file run configuration support and the bundled Shell Script plugin. If you are using Rider on Windows, point Rider's shell support at a working `bash` interpreter such as Git Bash or WSL before running these configs.
-
-Recommended Rider workflow:
-
-1. Open [FFXIVTelegram.sln](FFXIVTelegram.sln).
-2. Let Rider restore NuGet packages and index the solution.
-3. Use `Build Solution` for plugin builds.
-4. Use `Test Suite` for the full xUnit run.
-5. Use `Build And Test` when you want a one-click verification pass.
-
-### Rider Debugging
-
-The plugin runs inside the live `ffxiv_dx11.exe` process through Dalamud, so there is no portable project file that can fully automate debugging from Rider.
-
-Use this flow instead:
-
-1. Build the plugin from Rider.
-2. Launch FFXIV through XIVLauncher with Dalamud enabled and load the plugin.
-3. In Rider, use `Run | Attach to Process` and attach the `.NET` debugger to `ffxiv_dx11.exe`.
-4. If you want Rider waiting before the game process starts, use `Run | Attach to an Unstarted Process` and watch for `ffxiv_dx11.exe`.
-
-JetBrains documentation used for this setup:
-
-- shared run/debug configurations: <https://www.jetbrains.com/help/rider/Run_Debug_Configuration.html>
-- shell script run/debug configurations: <https://www.jetbrains.com/help/rider/Run_Debug_Configuration_Shell_Script.html>
-- attach to process and attach to an unstarted process: <https://www.jetbrains.com/help/rider/attach-to-process.html>
-
-## Development Notes
-
-- Target framework: `.NET 10`
-- Dalamud API level: `14`
-- Main command: `/ffxivtelegram`
-- Plugin manifest version: `0.0.1.0`
-
-## Manual Verification Checklist
-
-Before calling a build ready for live use, validate this in-game:
-
-- `/ffxivtelegram testinject hello`
-- Telegram `/start` authorization from a private chat
-- forwarding of tell, party, and free company messages
-- reply routing from Telegram back to the correct channel
-- untagged Telegram message fallback to the last active route
-- plugin unload without lingering polling behavior
+The GitHub Actions publish workflow uploads the zip to GitHub Releases and deploys `repo.json` to GitHub Pages for the public custom repo URL above.
