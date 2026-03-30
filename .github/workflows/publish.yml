@@ -22,6 +22,14 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Download Dalamud
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L https://goatcorp.github.io/dalamud-distrib/latest.zip -o latest.zip
+          unzip -q latest.zip -d dalamud
+          echo "DALAMUD_HOME=$PWD/dalamud" >> "$GITHUB_ENV"
+
       - name: Restore dependencies
         run: dotnet restore
 
