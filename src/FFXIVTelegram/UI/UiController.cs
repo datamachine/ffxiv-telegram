@@ -38,7 +38,7 @@ public sealed class UiController : IDisposable
         this.configWindow.Draw();
     }
 
-    private void OpenConfigWindow()
+    public void OpenConfigWindow()
     {
         this.configWindow.IsOpen = true;
     }

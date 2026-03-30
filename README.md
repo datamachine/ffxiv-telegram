@@ -22,7 +22,7 @@ https://datamachine.github.io/ffxiv-telegram/repo.json
 
 1. Create a bot with `@BotFather` and copy the bot token.
 2. Start a private 1:1 Telegram chat with that bot.
-3. Open the FFXIV Telegram configuration window from the Dalamud plugin list or with `/ffxivtelegram`.
+3. Open the FFXIV Telegram configuration window from the Dalamud plugin list or with `/xivtg`.
 4. Paste the token into `Telegram bot token`.
 5. Wait for the plugin to show `WaitingForStart`.
 6. Send `/start` to the bot from the same private chat you want to authorize.

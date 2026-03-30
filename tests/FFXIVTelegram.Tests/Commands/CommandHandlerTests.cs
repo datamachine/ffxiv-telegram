@@ -1,10 +1,7 @@
 namespace FFXIVTelegram.Tests.Commands;
 
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 using FFXIVTelegram.Commands;
-using FFXIVTelegram.Interop;
 using FFXIVTelegram.Tests.TestDoubles;
 using Xunit;
 
@@ -14,7 +11,7 @@ public sealed class CommandHandlerTests
     public void RegistersAndRemovesPluginCommand()
     {
         var commandManager = CommandManagerTestDouble.Create(out var proxy);
-        var handler = new CommandHandler(commandManager, this.CreateInjectionService(out _));
+        var handler = new CommandHandler(commandManager, () => { });
 
         Assert.Contains(PluginConstants.CommandName, proxy.Handlers.Keys);
 
@@ -24,64 +21,26 @@ public sealed class CommandHandlerTests
     }
 
     [Fact]
-    public async Task TestInjectSubcommandQueuesRawMessage()
+    public void InvokingCommandWithoutArgumentsOpensSettings()
     {
         var commandManager = CommandManagerTestDouble.Create(out var proxy);
-        var injectionService = this.CreateInjectionService(out var executor);
-        using var handler = new CommandHandler(commandManager, injectionService);
+        var openCount = 0;
+        using var handler = new CommandHandler(commandManager, () => openCount++);
 
-        proxy.Handlers[PluginConstants.CommandName].Handler(PluginConstants.CommandName, "testinject hello world");
-        await Task.Yield();
+        proxy.Handlers[PluginConstants.CommandName].Handler(PluginConstants.CommandName, string.Empty);
 
-        Assert.Equal(["hello world"], executor.Messages);
+        Assert.Equal(1, openCount);
     }
 
     [Fact]
-    public async Task TestInjectSubcommandReportsInjectionFailure()
+    public void InvokingCommandWithArgumentsStillOpensSettings()
     {
         var commandManager = CommandManagerTestDouble.Create(out var proxy);
-        var failures = new List<string>();
-        using var handler = new CommandHandler(
-            commandManager,
-            new ThrowingChatInjectionService(),
-            failures.Add);
+        var openCount = 0;
+        using var handler = new CommandHandler(commandManager, () => openCount++);
 
-        proxy.Handlers[PluginConstants.CommandName].Handler(PluginConstants.CommandName, "testinject hello world");
-        await Task.Yield();
+        proxy.Handlers[PluginConstants.CommandName].Handler(PluginConstants.CommandName, "ignored arguments");
 
-        Assert.Equal(["Test injection failed: boom"], failures);
-    }
-
-    private ChatInjectionService CreateInjectionService(out RecordingGameChatExecutor executor)
-    {
-        executor = new RecordingGameChatExecutor();
-        return new ChatInjectionService(new ImmediateFrameworkDispatcher(), executor, TimeSpan.Zero);
-    }
-
-    private sealed class ImmediateFrameworkDispatcher : IFrameworkDispatcher
-    {
-        public Task RunAsync(Action action, CancellationToken cancellationToken = default)
-        {
-            action();
-            return Task.CompletedTask;
-        }
-    }
-
-    private sealed class RecordingGameChatExecutor : IGameChatExecutor
-    {
-        public List<string> Messages { get; } = [];
-
-        public void Execute(string inputText)
-        {
-            this.Messages.Add(inputText);
-        }
-    }
-
-    private sealed class ThrowingChatInjectionService : IChatInjectionCommandTarget
-    {
-        public Task EnqueueRawAsync(string inputText, CancellationToken cancellationToken = default)
-        {
-            return Task.FromException(new InvalidOperationException("boom"));
-        }
+        Assert.Equal(1, openCount);
     }
 }

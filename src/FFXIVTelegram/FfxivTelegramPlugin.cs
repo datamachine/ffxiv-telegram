@@ -40,6 +40,7 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
         var configurationStore = new ConfigurationStore(pluginInterface);
         var configuration = configurationStore.Load();
         var configWindow = new ConfigWindow(configuration, configurationStore);
+        this.uiController = new UiController(pluginInterface, configWindow);
         this.telegramClientAdapter = new TelegramHttpClientAdapter(configuration);
         var replyMap = new TelegramReplyMap(capacity: 100, maxAge: TimeSpan.FromMinutes(30));
         this.telegramBridge = new TelegramBridgeService(configuration, this.telegramClientAdapter, configurationStore);
@@ -59,9 +60,7 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
             });
         this.commandHandler = new CommandHandler(
             commandManager,
-            this.chatInjectionService,
-            message => chatGui.PrintError(message));
-        this.uiController = new UiController(pluginInterface, configWindow);
+            this.uiController.OpenConfigWindow);
         this.uiController.ConnectionState = this.telegramBridge.ConnectionState;
         this.pollingTask = Task.Run(() => this.RunPollingLoopAsync(this.shutdownTokenSource.Token));
     }

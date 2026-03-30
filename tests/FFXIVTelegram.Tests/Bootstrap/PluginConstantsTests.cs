@@ -11,6 +11,6 @@ public sealed class PluginConstantsTests
         Assert.Equal("FFXIVTelegram.Tests.Bootstrap", typeof(PluginConstantsTests).Namespace);
         Assert.Equal("FFXIVTelegram", typeof(PluginConstants).Namespace);
         Assert.Equal("FFXIV Telegram", PluginConstants.PluginName);
-        Assert.Equal("/ffxivtelegram", PluginConstants.CommandName);
+        Assert.Equal("/xivtg", PluginConstants.CommandName);
     }
 }
