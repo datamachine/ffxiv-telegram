@@ -10,7 +10,7 @@
     "bridge"
   ],
   "ApplicableVersion": "any",
-  "RepoUrl": "https://github.com/vcastellano/ffxiv-telegram",
+  "RepoUrl": "https://github.com/datamachine/ffxiv-telegram",
   "DalamudApiLevel": 14,
   "LoadPriority": 0,
   "Punchline": "Bridging Eorzea and Telegram."
