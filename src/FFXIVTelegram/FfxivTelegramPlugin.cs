@@ -114,7 +114,11 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
                     this.uiController.ConnectionState = this.telegramBridge.ConnectionState;
                 }
 
-                await Task.Delay(PollingIdleDelay, cancellationToken).ConfigureAwait(false);
+                var idleDelay = ResolvePollingIdleDelay(this.telegramBridge.ConnectionState);
+                if (idleDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(idleDelay, cancellationToken).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -134,5 +138,12 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
                 }
             }
         }
+    }
+
+    private static TimeSpan ResolvePollingIdleDelay(TelegramConnectionState connectionState)
+    {
+        return connectionState == TelegramConnectionState.NotConfigured
+            ? PollingIdleDelay
+            : TimeSpan.Zero;
     }
 }

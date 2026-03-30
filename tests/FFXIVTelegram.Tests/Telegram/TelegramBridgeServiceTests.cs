@@ -422,6 +422,36 @@ public sealed class TelegramBridgeServiceTests
         Assert.Equal(new[] { 0L, 11L }, fixture.Adapter.RequestedOffsets);
     }
 
+    [Fact]
+    public async Task SendToAuthorizedChatDoesNotWaitForBlockedLongPoll()
+    {
+        var fixture = this.CreateService(authorizedChatId: 42, sendResult: TelegramSendResult.Ok(987));
+        var pollEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePoll = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        fixture.Adapter.OnGetUpdatesAsync = async (_, cancellationToken) =>
+        {
+            pollEntered.SetResult();
+            await releasePoll.Task.WaitAsync(cancellationToken);
+            return Array.Empty<TelegramUpdate>();
+        };
+
+        var pollTask = fixture.Service.PollOnceAsync(CancellationToken.None);
+        await pollEntered.Task;
+
+        var sendTask = fixture.Service.SendToAuthorizedChatAsync("hello");
+        var completedTask = await Task.WhenAny(sendTask, Task.Delay(TimeSpan.FromMilliseconds(100)));
+
+        Assert.Same(sendTask, completedTask);
+
+        var sendResult = await sendTask;
+        Assert.True(sendResult.Success);
+        Assert.Equal(987, sendResult.MessageId);
+
+        releasePoll.SetResult();
+        await pollTask;
+    }
+
     private ServiceFixture CreateService(
         long? authorizedChatId = null,
         string telegramBotToken = "token",

@@ -6,7 +6,8 @@ public sealed class TelegramBridgeService
 {
     private readonly ITelegramClientAdapter clientAdapter;
     private readonly ConfigurationStore configurationStore;
-    private readonly SemaphoreSlim operationGate = new(1, 1);
+    private readonly SemaphoreSlim pollingGate = new(1, 1);
+    private readonly SemaphoreSlim sendGate = new(1, 1);
     private readonly object stateGate = new();
     private TransportErrorContext? transportErrorContext;
     private string? pollingToken;
@@ -51,7 +52,7 @@ public sealed class TelegramBridgeService
             return TelegramPollResult.Empty(this.nextUpdateOffset);
         }
 
-        await this.operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await this.pollingGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var configuration = this.SnapshotConfiguration();
@@ -109,7 +110,7 @@ public sealed class TelegramBridgeService
         }
         finally
         {
-            this.operationGate.Release();
+            this.pollingGate.Release();
         }
     }
 
@@ -126,7 +127,7 @@ public sealed class TelegramBridgeService
     {
         ArgumentNullException.ThrowIfNull(text);
         cancellationToken.ThrowIfCancellationRequested();
-        await this.operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await this.sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var configuration = this.SnapshotConfiguration();
@@ -162,7 +163,7 @@ public sealed class TelegramBridgeService
         }
         finally
         {
-            this.operationGate.Release();
+            this.sendGate.Release();
         }
     }
 
@@ -220,14 +221,14 @@ public sealed class TelegramBridgeService
         ArgumentNullException.ThrowIfNull(text);
 
         cancellationToken.ThrowIfCancellationRequested();
-        await this.operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await this.pollingGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             return this.HandleIncomingTextCore(chatId, isPrivateChat, text);
         }
         finally
         {
-            this.operationGate.Release();
+            this.pollingGate.Release();
         }
     }
 
