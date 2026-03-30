@@ -2,7 +2,7 @@
   "Author": "Surye",
   "Name": "FFXIV Telegram",
   "InternalName": "FFXIVTelegram",
-  "AssemblyVersion": "0.0.1.0",
+  "AssemblyVersion": "0.1.5",
   "Description": "Bridges FFXIV chat and Telegram.",
   "Tags": [
     "chat",
