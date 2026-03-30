@@ -17,6 +17,7 @@ public sealed class UiController : IDisposable
 
         this.pluginInterface.UiBuilder.Draw += this.Draw;
         this.pluginInterface.UiBuilder.OpenConfigUi += this.OpenConfigWindow;
+        this.pluginInterface.UiBuilder.OpenMainUi += this.OpenConfigWindow;
     }
 
     public TelegramConnectionState ConnectionState
@@ -29,6 +30,7 @@ public sealed class UiController : IDisposable
     {
         this.pluginInterface.UiBuilder.Draw -= this.Draw;
         this.pluginInterface.UiBuilder.OpenConfigUi -= this.OpenConfigWindow;
+        this.pluginInterface.UiBuilder.OpenMainUi -= this.OpenConfigWindow;
     }
 
     private void Draw()

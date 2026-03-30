@@ -36,6 +36,22 @@ public sealed class CommandHandlerTests
         Assert.Equal(["hello world"], executor.Messages);
     }
 
+    [Fact]
+    public async Task TestInjectSubcommandReportsInjectionFailure()
+    {
+        var commandManager = CommandManagerTestDouble.Create(out var proxy);
+        var failures = new List<string>();
+        using var handler = new CommandHandler(
+            commandManager,
+            new ThrowingChatInjectionService(),
+            failures.Add);
+
+        proxy.Handlers[PluginConstants.CommandName].Handler(PluginConstants.CommandName, "testinject hello world");
+        await Task.Yield();
+
+        Assert.Equal(["Test injection failed: boom"], failures);
+    }
+
     private ChatInjectionService CreateInjectionService(out RecordingGameChatExecutor executor)
     {
         executor = new RecordingGameChatExecutor();
@@ -58,6 +74,14 @@ public sealed class CommandHandlerTests
         public void Execute(string inputText)
         {
             this.Messages.Add(inputText);
+        }
+    }
+
+    private sealed class ThrowingChatInjectionService : IChatInjectionCommandTarget
+    {
+        public Task EnqueueRawAsync(string inputText, CancellationToken cancellationToken = default)
+        {
+            return Task.FromException(new InvalidOperationException("boom"));
         }
     }
 }

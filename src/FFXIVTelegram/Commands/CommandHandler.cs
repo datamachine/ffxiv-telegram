@@ -7,12 +7,17 @@ using FFXIVTelegram.Interop;
 public sealed class CommandHandler : IDisposable
 {
     private readonly ICommandManager commandManager;
-    private readonly ChatInjectionService chatInjectionService;
+    private readonly IChatInjectionCommandTarget chatInjectionService;
+    private readonly Action<string>? notifyFailure;
 
-    public CommandHandler(ICommandManager commandManager, ChatInjectionService chatInjectionService)
+    public CommandHandler(
+        ICommandManager commandManager,
+        IChatInjectionCommandTarget chatInjectionService,
+        Action<string>? notifyFailure = null)
     {
         this.commandManager = commandManager ?? throw new ArgumentNullException(nameof(commandManager));
         this.chatInjectionService = chatInjectionService ?? throw new ArgumentNullException(nameof(chatInjectionService));
+        this.notifyFailure = notifyFailure;
 
         this.commandManager.AddHandler(PluginConstants.CommandName, new CommandInfo(this.OnCommand)
         {
@@ -45,6 +50,18 @@ public sealed class CommandHandler : IDisposable
             return;
         }
 
-        _ = this.chatInjectionService.EnqueueRawAsync(payload);
+        _ = this.EnqueueRawAsync(payload);
+    }
+
+    private async Task EnqueueRawAsync(string payload)
+    {
+        try
+        {
+            await this.chatInjectionService.EnqueueRawAsync(payload).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            this.notifyFailure?.Invoke($"Test injection failed: {exception.Message}");
+        }
     }
 }

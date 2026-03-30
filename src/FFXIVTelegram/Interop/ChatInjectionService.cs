@@ -4,7 +4,7 @@ using System.Text;
 using FFXIVTelegram.Chat;
 
 public sealed class ChatInjectionService
-    : IChatInjectionQueue, IDisposable
+    : IChatInjectionQueue, IChatInjectionCommandTarget, IDisposable
 {
     private const int MaxInjectionUtf8Bytes = 500;
 

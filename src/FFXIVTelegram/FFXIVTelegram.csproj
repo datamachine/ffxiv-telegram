@@ -1,16 +1,17 @@
 <Project Sdk="Dalamud.NET.Sdk/14.0.2">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <RuntimeFrameworkVersion>10.0.0</RuntimeFrameworkVersion>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <PlatformTarget>x64</PlatformTarget>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <Version>0.0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="Dalamud.Bindings.ImGui">
-      <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImGui.dll</HintPath>
-    </Reference>
     <InternalsVisibleTo Include="FFXIVTelegram.Tests" />
   </ItemGroup>
 </Project>

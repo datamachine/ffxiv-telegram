@@ -19,6 +19,7 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
     private readonly CommandHandler commandHandler;
     private readonly TelegramBridgeService telegramBridge;
     private readonly TelegramHttpClientAdapter telegramClientAdapter;
+    private readonly XivChatGameChatExecutor gameChatExecutor;
     private readonly ChatInjectionService chatInjectionService;
     private readonly UiController uiController;
     private readonly GameChatMonitor gameChatMonitor;
@@ -31,9 +32,9 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
     public FfxivTelegramPlugin(
         IDalamudPluginInterface pluginInterface,
         IChatGui chatGui,
+        IGameGui gameGui,
         ICommandManager commandManager,
-        IFramework framework,
-        IGameInteropProvider gameInteropProvider)
+        IFramework framework)
     {
         var configurationStore = new ConfigurationStore(pluginInterface);
         var configuration = configurationStore.Load();
@@ -43,8 +44,8 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
         this.telegramBridge = new TelegramBridgeService(configuration, this.telegramClientAdapter, configurationStore);
         this.gameChatMonitor = new GameChatMonitor(chatGui, configuration, this.telegramBridge, replyMap);
         var frameworkDispatcher = new FrameworkDispatcher(framework);
-        var gameChatExecutor = new XivChatGameChatExecutor(gameInteropProvider);
-        this.chatInjectionService = new ChatInjectionService(frameworkDispatcher, gameChatExecutor, TimeSpan.FromMilliseconds(500));
+        this.gameChatExecutor = new XivChatGameChatExecutor(gameGui);
+        this.chatInjectionService = new ChatInjectionService(frameworkDispatcher, this.gameChatExecutor, TimeSpan.FromMilliseconds(500));
         this.inboundPipeline = new TelegramInboundPipeline(
             new RouteResolver(new RouteTagParser()),
             replyMap,
@@ -55,7 +56,10 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
             {
                 await this.telegramBridge.SendToAuthorizedChatAsync(message, cancellationToken).ConfigureAwait(false);
             });
-        this.commandHandler = new CommandHandler(commandManager, this.chatInjectionService);
+        this.commandHandler = new CommandHandler(
+            commandManager,
+            this.chatInjectionService,
+            message => chatGui.PrintError(message));
         this.uiController = new UiController(pluginInterface, configWindow);
         this.uiController.ConnectionState = this.telegramBridge.ConnectionState;
         this.pollingTask = Task.Run(() => this.RunPollingLoopAsync(this.shutdownTokenSource.Token));

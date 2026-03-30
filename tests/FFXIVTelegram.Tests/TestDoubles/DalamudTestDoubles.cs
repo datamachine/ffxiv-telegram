@@ -64,6 +64,8 @@ internal class UiBuilderTestDouble : DispatchProxy
 
     private Action? openConfigUi;
 
+    private Action? openMainUi;
+
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
         if (targetMethod == null)
@@ -85,6 +87,12 @@ internal class UiBuilderTestDouble : DispatchProxy
             case "remove_OpenConfigUi":
                 this.openConfigUi -= (Action?)args?[0];
                 return null;
+            case "add_OpenMainUi":
+                this.openMainUi += (Action?)args?[0];
+                return null;
+            case "remove_OpenMainUi":
+                this.openMainUi -= (Action?)args?[0];
+                return null;
             default:
                 throw new NotSupportedException(targetMethod.Name);
         }
@@ -105,6 +113,11 @@ internal class UiBuilderTestDouble : DispatchProxy
     public void RaiseOpenConfigUi()
     {
         this.openConfigUi?.Invoke();
+    }
+
+    public void RaiseOpenMainUi()
+    {
+        this.openMainUi?.Invoke();
     }
 }
 

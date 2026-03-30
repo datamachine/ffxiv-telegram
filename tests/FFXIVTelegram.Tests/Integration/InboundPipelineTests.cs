@@ -111,12 +111,18 @@ public sealed class InboundPipelineTests
     public async Task InjectionFailureIsDroppedWithoutUpdatingRouteState()
     {
         var routeContext = RouteContext.FromState(null);
+        var notifications = new List<string>();
         var pipeline = new TelegramInboundPipeline(
             new RouteResolver(new RouteTagParser()),
             new TelegramReplyMap(100, TimeSpan.FromMinutes(30)),
             () => routeContext,
             new ThrowingChatInjectionQueue(),
-            route => routeContext = RouteContext.FromState(route));
+            route => routeContext = RouteContext.FromState(route),
+            notifyFailureAsync: (message, _) =>
+            {
+                notifications.Add(message);
+                return Task.CompletedTask;
+            });
 
         var handled = await pipeline.HandleAsync(
             new TelegramInboundMessage(UpdateId: 1, MessageId: 2, ReplyToMessageId: null, ChatId: 42, IsPrivateChat: true, Text: "/p hello"));
@@ -124,6 +130,7 @@ public sealed class InboundPipelineTests
         Assert.False(handled);
         Assert.Null(routeContext.LastActiveRoute);
         Assert.Null(routeContext.LastTellRoute);
+        Assert.Equal(["Message injection failed: boom"], notifications);
     }
 
     private sealed class RecordingChatInjectionQueue : IChatInjectionQueue

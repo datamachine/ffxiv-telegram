@@ -17,6 +17,7 @@ public sealed class UiControllerTests
         {
             uiBuilder.RaiseDraw();
             uiBuilder.RaiseOpenConfigUi();
+            uiBuilder.RaiseOpenMainUi();
 
             Assert.Equal(1, fakeWindow.DrawCount);
             Assert.True(fakeWindow.IsOpen);
@@ -36,6 +37,19 @@ public sealed class UiControllerTests
         _ = new UiController(plugin, fakeWindow);
 
         uiBuilder.RaiseOpenConfigUi();
+
+        Assert.True(fakeWindow.IsOpen);
+    }
+
+    [Fact]
+    public void OpenMainUiSetsWindowOpen()
+    {
+        var fakeWindow = new FakeConfigWindow();
+        var plugin = DalamudPluginInterfaceTestDouble.Create(null, out _, out var uiBuilder);
+
+        _ = new UiController(plugin, fakeWindow);
+
+        uiBuilder.RaiseOpenMainUi();
 
         Assert.True(fakeWindow.IsOpen);
     }

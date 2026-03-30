@@ -4,6 +4,11 @@
   "InternalName": "FFXIVTelegram",
   "AssemblyVersion": "0.0.1.0",
   "Description": "Bridges FFXIV chat and Telegram.",
+  "Tags": [
+    "chat",
+    "telegram",
+    "bridge"
+  ],
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/vcastellano/ffxiv-telegram",
   "DalamudApiLevel": 14,

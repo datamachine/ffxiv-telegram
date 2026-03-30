@@ -53,8 +53,9 @@ public sealed class TelegramInboundPipeline
         {
             throw;
         }
-        catch
+        catch (Exception exception)
         {
+            await this.NotifyFailureAsync($"Message injection failed: {exception.Message}", cancellationToken).ConfigureAwait(false);
             return false;
         }
 
