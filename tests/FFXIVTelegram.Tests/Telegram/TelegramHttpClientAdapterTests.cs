@@ -82,6 +82,26 @@ public sealed class TelegramHttpClientAdapterTests
     }
 
     [Fact]
+    public async Task GetUpdatesAsyncParsesBotSenderMetadata()
+    {
+        using var fixture = CreateAdapter("""
+            {"ok":true,"result":[
+              {"update_id":5,"message":{
+                "message_id":7,
+                "from":{"id":123,"is_bot":true},
+                "chat":{"id":42,"type":"private"},
+                "text":"hello"}}
+            ]}
+            """);
+
+        var updates = await fixture.Adapter.GetUpdatesAsync(0, CancellationToken.None);
+
+        var update = Assert.Single(updates);
+        Assert.Equal(123, update.FromUserId);
+        Assert.True(update.IsFromBot);
+    }
+
+    [Fact]
     public async Task SendTextAsyncReturnsMessageIdFromTelegramResponse()
     {
         var configuration = new FfxivTelegramConfiguration
@@ -126,5 +146,41 @@ public sealed class TelegramHttpClientAdapterTests
             this.RequestUris.Add(request.RequestUri);
             return Task.FromResult(this.handler(request));
         }
+    }
+
+    private sealed class AdapterFixture : IDisposable
+    {
+        public AdapterFixture(TelegramHttpClientAdapter adapter, StubHttpMessageHandler handler)
+        {
+            this.Adapter = adapter;
+            this.Handler = handler;
+        }
+
+        public TelegramHttpClientAdapter Adapter { get; }
+
+        public StubHttpMessageHandler Handler { get; }
+
+        public void Dispose()
+        {
+            this.Adapter.Dispose();
+        }
+    }
+
+    private static AdapterFixture CreateAdapter(string payload)
+    {
+        var configuration = new FfxivTelegramConfiguration
+        {
+            TelegramBotToken = "token",
+        };
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        });
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://api.telegram.org/"),
+        };
+        var adapter = new TelegramHttpClientAdapter(configuration, httpClient);
+        return new AdapterFixture(adapter, handler);
     }
 }

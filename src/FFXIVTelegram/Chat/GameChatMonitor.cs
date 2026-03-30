@@ -10,6 +10,7 @@ public sealed class GameChatMonitor : IDisposable
 {
     private readonly object routeStateGate = new();
     private readonly IChatGui chatGui;
+    private readonly IPlayerState playerState;
     private readonly FfxivTelegramConfiguration configuration;
     private readonly TelegramBridgeService telegramBridge;
     private readonly TelegramReplyMap replyMap;
@@ -18,11 +19,13 @@ public sealed class GameChatMonitor : IDisposable
 
     public GameChatMonitor(
         IChatGui chatGui,
+        IPlayerState playerState,
         FfxivTelegramConfiguration configuration,
         TelegramBridgeService telegramBridge,
         TelegramReplyMap replyMap)
     {
         this.chatGui = chatGui ?? throw new ArgumentNullException(nameof(chatGui));
+        this.playerState = playerState ?? throw new ArgumentNullException(nameof(playerState));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.telegramBridge = telegramBridge ?? throw new ArgumentNullException(nameof(telegramBridge));
         this.replyMap = replyMap ?? throw new ArgumentNullException(nameof(replyMap));
@@ -54,6 +57,11 @@ public sealed class GameChatMonitor : IDisposable
         }
 
         this.UpdateRouteContext(forwarded.Route);
+
+        if (this.IsSelfAuthored(type, sender))
+        {
+            return null;
+        }
 
         if (!this.IsForwardingEnabled(forwarded.Route))
         {
@@ -109,6 +117,23 @@ public sealed class GameChatMonitor : IDisposable
                 _ => false,
             };
         }
+    }
+
+    private bool IsSelfAuthored(XivChatType type, string sender)
+    {
+        if (type == XivChatType.TellOutgoing)
+        {
+            return true;
+        }
+
+        var localPlayerName = this.playerState.CharacterName?.Trim();
+        if (string.IsNullOrWhiteSpace(localPlayerName))
+        {
+            return false;
+        }
+
+        return type is XivChatType.Party or XivChatType.FreeCompany
+            && string.Equals(sender.Trim(), localPlayerName, StringComparison.Ordinal);
     }
 
     private void UpdateRouteContext(ChatRoute route)

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
+using Dalamud.Plugin.Services;
 using FFXIVTelegram.Chat;
 using FFXIVTelegram.Configuration;
 using FFXIVTelegram.Telegram;
@@ -101,6 +102,58 @@ public sealed class GameChatMonitorTests
     }
 
     [Fact]
+    public async Task PartyMessageFromLocalPlayerIsNotForwarded()
+    {
+        var fixture = this.CreateFixture(localPlayerName: "Alice Example");
+
+        var result = await fixture.Monitor.ForwardAsync(XivChatType.Party, "Alice Example", "Hello!");
+
+        Assert.Null(result);
+        Assert.Empty(fixture.Adapter.SentTexts);
+        Assert.Equal(ChatRoute.Party(), fixture.Monitor.CurrentRouteContext.LastActiveRoute);
+        Assert.Null(fixture.Monitor.CurrentRouteContext.LastTellRoute);
+    }
+
+    [Fact]
+    public async Task OutgoingTellFromLocalPlayerIsNotForwarded()
+    {
+        var fixture = this.CreateFixture(localPlayerName: "Alice Example");
+
+        var result = await fixture.Monitor.ForwardAsync(XivChatType.TellOutgoing, "Alice Example", "Hello!");
+
+        Assert.Null(result);
+        Assert.Empty(fixture.Adapter.SentTexts);
+        Assert.Equal(ChatRoute.Tell("Alice Example"), fixture.Monitor.CurrentRouteContext.LastActiveRoute);
+        Assert.Equal(ChatRoute.Tell("Alice Example"), fixture.Monitor.CurrentRouteContext.LastTellRoute);
+    }
+
+    [Fact]
+    public async Task OutgoingTellIsNotForwardedWhenPlayerStateIsUnavailable()
+    {
+        var fixture = this.CreateFixture(localPlayerName: null);
+
+        var result = await fixture.Monitor.ForwardAsync(XivChatType.TellOutgoing, "Alice Example", "Hello!");
+
+        Assert.Null(result);
+        Assert.Empty(fixture.Adapter.SentTexts);
+        Assert.Equal(ChatRoute.Tell("Alice Example"), fixture.Monitor.CurrentRouteContext.LastActiveRoute);
+        Assert.Equal(ChatRoute.Tell("Alice Example"), fixture.Monitor.CurrentRouteContext.LastTellRoute);
+    }
+
+    [Fact]
+    public async Task FreeCompanyMessageFromLocalPlayerIsNotForwarded()
+    {
+        var fixture = this.CreateFixture(localPlayerName: "Alice Example");
+
+        var result = await fixture.Monitor.ForwardAsync(XivChatType.FreeCompany, "Alice Example", "Hello!");
+
+        Assert.Null(result);
+        Assert.Empty(fixture.Adapter.SentTexts);
+        Assert.Equal(ChatRoute.FreeCompany(), fixture.Monitor.CurrentRouteContext.LastActiveRoute);
+        Assert.Null(fixture.Monitor.CurrentRouteContext.LastTellRoute);
+    }
+
+    [Fact]
     public void RecordRouteUsageUpdatesCurrentRouteContext()
     {
         var fixture = this.CreateFixture();
@@ -116,6 +169,7 @@ public sealed class GameChatMonitorTests
 
     private Fixture CreateFixture(
         TelegramSendResult? sendResult = null,
+        string? localPlayerName = null,
         Action<FfxivTelegramConfiguration>? configure = null)
     {
         var configuration = new FfxivTelegramConfiguration
@@ -134,7 +188,8 @@ public sealed class GameChatMonitorTests
         var bridge = new TelegramBridgeService(configuration, adapter, store);
         var replyMap = new TelegramReplyMap(capacity: 10, maxAge: TimeSpan.FromMinutes(30));
         var chatGui = ChatGuiTestDouble.Create(out var chatGuiProxy);
-        var monitor = new GameChatMonitor(chatGui, configuration, bridge, replyMap);
+        var playerState = PlayerStateTestDouble.Create(localPlayerName, out _);
+        var monitor = new GameChatMonitor(chatGui, playerState, configuration, bridge, replyMap);
 
         return new Fixture(monitor, bridge, replyMap, adapter, chatGuiProxy);
     }
@@ -152,6 +207,8 @@ public sealed class GameChatMonitorTests
 
         public string? LastSendText { get; private set; }
 
+        public List<string> SentTexts { get; } = [];
+
         public TelegramSendResult SendResult { get; set; } = TelegramSendResult.Ok(123);
 
         public Task<IReadOnlyList<TelegramUpdate>> GetUpdatesAsync(long offset, CancellationToken cancellationToken)
@@ -163,6 +220,7 @@ public sealed class GameChatMonitorTests
         {
             this.SendCallCount++;
             this.LastSendText = text;
+            this.SentTexts.Add(text);
             return Task.FromResult(this.SendResult);
         }
     }

@@ -168,6 +168,11 @@ public sealed class TelegramBridgeService
 
     private async Task<TelegramInboundMessage?> HandleIncomingUpdateAsync(TelegramUpdate update, CancellationToken cancellationToken)
     {
+        if (update.IsFromBot)
+        {
+            return null;
+        }
+
         var inboundResult = this.HandleIncomingTextCore(update.ChatId, update.IsPrivateChat, update.Text ?? string.Empty);
         if (inboundResult != TelegramInboundResult.Accepted)
         {

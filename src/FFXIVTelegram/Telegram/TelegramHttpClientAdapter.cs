@@ -95,6 +95,13 @@ internal sealed class TelegramHttpClientAdapter : ITelegramClientAdapter, IDispo
             var text = messageElement.TryGetProperty("text", out var textElement)
                 ? textElement.GetString()
                 : null;
+            var fromUserId = messageElement.TryGetProperty("from", out var fromElement)
+                && fromElement.TryGetProperty("id", out var fromIdElement)
+                    ? (long?)fromIdElement.GetInt64()
+                    : null;
+            var isFromBot = messageElement.TryGetProperty("from", out var botElement)
+                && botElement.TryGetProperty("is_bot", out var isBotElement)
+                    && isBotElement.GetBoolean();
             var chatType = chatElement.TryGetProperty("type", out var chatTypeElement)
                 ? chatTypeElement.GetString()
                 : null;
@@ -105,7 +112,9 @@ internal sealed class TelegramHttpClientAdapter : ITelegramClientAdapter, IDispo
                 replyToMessageId,
                 chatIdElement.GetInt64(),
                 string.Equals(chatType, "private", StringComparison.Ordinal),
-                text));
+                text,
+                fromUserId,
+                isFromBot));
         }
 
         return updates;

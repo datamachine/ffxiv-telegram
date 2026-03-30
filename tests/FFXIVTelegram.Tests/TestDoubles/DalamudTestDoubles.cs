@@ -194,3 +194,30 @@ internal class CommandManagerTestDouble : DispatchProxy
         return commandManager;
     }
 }
+
+internal class PlayerStateTestDouble : DispatchProxy
+{
+    public string? CharacterName { get; set; }
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        if (targetMethod == null)
+        {
+            throw new ArgumentNullException(nameof(targetMethod));
+        }
+
+        return targetMethod.Name switch
+        {
+            "get_CharacterName" => this.CharacterName,
+            _ => throw new NotSupportedException(targetMethod.Name),
+        };
+    }
+
+    public static IPlayerState Create(string? localPlayerName, out PlayerStateTestDouble proxy)
+    {
+        var playerState = DispatchProxy.Create<IPlayerState, PlayerStateTestDouble>();
+        proxy = (PlayerStateTestDouble)(object)playerState;
+        proxy.CharacterName = localPlayerName;
+        return playerState;
+    }
+}

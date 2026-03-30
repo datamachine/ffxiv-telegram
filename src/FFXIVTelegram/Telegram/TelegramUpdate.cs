@@ -6,4 +6,6 @@ public sealed record TelegramUpdate(
     long? ReplyToMessageId,
     long ChatId,
     bool IsPrivateChat,
-    string? Text);
+    string? Text,
+    long? FromUserId = null,
+    bool IsFromBot = false);

@@ -168,6 +168,37 @@ public sealed class TelegramBridgeServiceTests
     }
 
     [Fact]
+    public async Task PollOnceIgnoresBotAuthoredMessages()
+    {
+        var fixture = this.CreateService(
+            authorizedChatId: 42,
+            updateBatches:
+            [
+                [
+                    new TelegramUpdate(
+                        UpdateId: 10,
+                        MessageId: 100,
+                        ReplyToMessageId: null,
+                        ChatId: 42,
+                        IsPrivateChat: true,
+                        Text: "echo",
+                        FromUserId: 999,
+                        IsFromBot: true),
+                ],
+                [],
+            ]);
+
+        var firstPoll = await fixture.Service.PollOnceAsync(CancellationToken.None);
+        var secondPoll = await fixture.Service.PollOnceAsync(CancellationToken.None);
+
+        Assert.Equal(11, firstPoll.NextOffset);
+        Assert.Empty(firstPoll.AcceptedMessages);
+        Assert.Equal(new[] { 0L, 11L }, fixture.Adapter.RequestedOffsets);
+        Assert.Equal(11, secondPoll.NextOffset);
+        Assert.Empty(secondPoll.AcceptedMessages);
+    }
+
+    [Fact]
     public async Task PollOnceTreatsCancellationAsNormalStop()
     {
         var fixture = this.CreateService(authorizedChatId: 42);

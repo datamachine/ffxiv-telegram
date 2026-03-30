@@ -32,6 +32,7 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
     public FfxivTelegramPlugin(
         IDalamudPluginInterface pluginInterface,
         IChatGui chatGui,
+        IPlayerState playerState,
         IGameGui gameGui,
         ICommandManager commandManager,
         IFramework framework)
@@ -42,7 +43,7 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
         this.telegramClientAdapter = new TelegramHttpClientAdapter(configuration);
         var replyMap = new TelegramReplyMap(capacity: 100, maxAge: TimeSpan.FromMinutes(30));
         this.telegramBridge = new TelegramBridgeService(configuration, this.telegramClientAdapter, configurationStore);
-        this.gameChatMonitor = new GameChatMonitor(chatGui, configuration, this.telegramBridge, replyMap);
+        this.gameChatMonitor = new GameChatMonitor(chatGui, playerState, configuration, this.telegramBridge, replyMap);
         var frameworkDispatcher = new FrameworkDispatcher(framework);
         this.gameChatExecutor = new XivChatGameChatExecutor(gameGui);
         this.chatInjectionService = new ChatInjectionService(frameworkDispatcher, this.gameChatExecutor, TimeSpan.FromMilliseconds(500));
