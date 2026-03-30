@@ -27,7 +27,7 @@ public static class RepoJsonWriter
                 manifest.ApplicableVersion,
                 manifest.DalamudApiLevel,
                 manifest.LoadPriority,
-                LastUpdate = publishedAt.ToString("O"),
+                LastUpdate = publishedAt.ToUnixTimeSeconds(),
                 DownloadLinkInstall = assetUrl,
                 DownloadLinkUpdate = assetUrl,
                 DownloadLinkTesting = assetUrl,

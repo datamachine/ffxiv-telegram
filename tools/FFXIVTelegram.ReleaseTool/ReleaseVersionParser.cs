@@ -23,6 +23,6 @@ public static class ReleaseVersionParser
             throw new ArgumentException("Stable tags must use numeric X.Y.Z components.", nameof(tag));
         }
 
-        return $"{major}.{minor}.{patch}.0";
+        return $"{major}.{minor}.{patch}";
     }
 }

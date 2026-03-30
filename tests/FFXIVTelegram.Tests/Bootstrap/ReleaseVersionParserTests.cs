@@ -5,13 +5,13 @@ using Xunit;
 public sealed class ReleaseVersionParserTests
 {
     [Theory]
-    [InlineData("v1.2.3", "1.2.3.0")]
-    [InlineData("v10.20.30", "10.20.30.0")]
-    public void ParseStableTagReturnsAssemblyVersion(string tag, string expectedAssemblyVersion)
+    [InlineData("v1.2.3", "1.2.3")]
+    [InlineData("v10.20.30", "10.20.30")]
+    public void ParseStableTagReturnsStableVersion(string tag, string expectedVersion)
     {
-        var actualAssemblyVersion = ReleaseVersionParser.ParseStableTag(tag);
+        var actualVersion = ReleaseVersionParser.ParseStableTag(tag);
 
-        Assert.Equal(expectedAssemblyVersion, actualAssemblyVersion);
+        Assert.Equal(expectedVersion, actualVersion);
     }
 
     [Theory]
