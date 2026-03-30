@@ -20,12 +20,11 @@ public sealed class ReleaseScriptTests
         "mv",
         "grep",
         "date",
-        "bsdtar",
         "rm",
     ];
 
     [Fact]
-    public void BuildReleaseScriptCreatesVersionedZipAndRepoJson()
+    public void BuildReleaseScriptCreatesVersionedZipAndRepoJsonWhenZipIsAvailable()
     {
         using var tempDirectory = new TempDirectory();
         var inputDirectory = tempDirectory.CreateDirectory("input");
@@ -33,7 +32,7 @@ public sealed class ReleaseScriptTests
 
         WriteRequiredPluginFiles(inputDirectory);
 
-        var result = RunReleaseScript(
+        var result = RunReleaseScriptWithPath(
             CreateScriptEnvironmentPath(tempDirectory, includeZipShim: true),
             "--tag",
             "v0.1.0",
@@ -41,6 +40,108 @@ public sealed class ReleaseScriptTests
             inputDirectory,
             "--output",
             outputDirectory);
+
+        AssertArchiveAndRepoJson(outputDirectory, result);
+    }
+
+    [Fact]
+    public void BuildReleaseScriptFallsBackToBsdtarWhenZipIsUnavailable()
+    {
+        using var tempDirectory = new TempDirectory();
+        var inputDirectory = tempDirectory.CreateDirectory("input");
+        var outputDirectory = tempDirectory.CreateDirectory("output");
+
+        WriteRequiredPluginFiles(inputDirectory);
+
+        var result = RunReleaseScriptWithPath(
+            CreateScriptEnvironmentPath(tempDirectory, includeZipShim: false, includeBsdtar: true),
+            "--tag",
+            "v0.1.0",
+            "--input",
+            inputDirectory,
+            "--output",
+            outputDirectory);
+
+        AssertArchiveAndRepoJson(outputDirectory, result);
+    }
+
+    [Theory]
+    [InlineData("v01.2.3")]
+    [InlineData("1.2.3")]
+    public void BuildReleaseScriptRejectsInvalidTagShapes(string tag)
+    {
+        using var tempDirectory = new TempDirectory();
+        var inputDirectory = tempDirectory.CreateDirectory("input");
+        var outputDirectory = tempDirectory.CreateDirectory("output");
+
+        WriteRequiredPluginFiles(inputDirectory);
+
+        var result = RunReleaseScript("--tag", tag, "--input", inputDirectory, "--output", outputDirectory);
+
+        Assert.NotEqual(0, result.ExitCode);
+    }
+
+    [Fact]
+    public void BuildReleaseScriptFailsWhenDepsJsonIsMissing()
+    {
+        using var tempDirectory = new TempDirectory();
+        var inputDirectory = tempDirectory.CreateDirectory("input");
+        var outputDirectory = tempDirectory.CreateDirectory("output");
+
+        File.WriteAllBytes(Path.Combine(inputDirectory, "FFXIVTelegram.dll"), []);
+        File.WriteAllText(Path.Combine(inputDirectory, "FFXIVTelegram.json"), CreateManifestJson(), new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+        var result = RunReleaseScript("--tag", "v0.1.0", "--input", inputDirectory, "--output", outputDirectory);
+
+        Assert.NotEqual(0, result.ExitCode);
+    }
+
+    [Fact]
+    public void BuildReleaseScriptFailsClearlyWhenArchiveToolsAreUnavailable()
+    {
+        using var tempDirectory = new TempDirectory();
+        var inputDirectory = tempDirectory.CreateDirectory("input");
+        var outputDirectory = tempDirectory.CreateDirectory("output");
+
+        WriteRequiredPluginFiles(inputDirectory);
+
+        var result = RunReleaseScriptWithPath(
+            CreateScriptEnvironmentPath(tempDirectory, includeZipShim: false, includeBsdtar: false),
+            "--tag",
+            "v0.1.0",
+            "--input",
+            inputDirectory,
+            "--output",
+            outputDirectory);
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("zip or bsdtar is required", result.StandardError, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildReleaseScriptAcceptsRelativeInputAndOutputPaths()
+    {
+        using var tempDirectory = new TempDirectory();
+        var inputDirectory = tempDirectory.CreateDirectory("input");
+        var outputDirectory = tempDirectory.CreateDirectory("output");
+
+        WriteRequiredPluginFiles(inputDirectory);
+
+        var result = RunReleaseScriptWithPathAndWorkingDirectory(
+            CreateScriptEnvironmentPath(tempDirectory, includeZipShim: false, includeBsdtar: true),
+            tempDirectory.RootPath,
+            "--tag",
+            "v0.1.0",
+            "--input",
+            "input",
+            "--output",
+            "output");
+
+        AssertArchiveAndRepoJson(outputDirectory, result);
+    }
+
+    private static void AssertArchiveAndRepoJson(string outputDirectory, ReleaseScriptResult result)
+    {
         var zipPath = Path.Combine(outputDirectory, "FFXIVTelegram-0.1.0.zip");
         var repoJsonPath = Path.Combine(outputDirectory, "repo.json");
 
@@ -89,59 +190,6 @@ public sealed class ReleaseScriptTests
         Assert.Equal(expectedDownloadLink, entry.GetProperty("DownloadLinkTesting").GetString());
     }
 
-    [Theory]
-    [InlineData("v01.2.3")]
-    [InlineData("1.2.3")]
-    public void BuildReleaseScriptRejectsInvalidTagShapes(string tag)
-    {
-        using var tempDirectory = new TempDirectory();
-        var inputDirectory = tempDirectory.CreateDirectory("input");
-        var outputDirectory = tempDirectory.CreateDirectory("output");
-
-        WriteRequiredPluginFiles(inputDirectory);
-
-        var result = RunReleaseScript("--tag", tag, "--input", inputDirectory, "--output", outputDirectory);
-
-        Assert.NotEqual(0, result.ExitCode);
-    }
-
-    [Fact]
-    public void BuildReleaseScriptFailsWhenDepsJsonIsMissing()
-    {
-        using var tempDirectory = new TempDirectory();
-        var inputDirectory = tempDirectory.CreateDirectory("input");
-        var outputDirectory = tempDirectory.CreateDirectory("output");
-
-        File.WriteAllBytes(Path.Combine(inputDirectory, "FFXIVTelegram.dll"), []);
-        File.WriteAllText(Path.Combine(inputDirectory, "FFXIVTelegram.json"), CreateManifestJson(), new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-
-        var result = RunReleaseScript("--tag", "v0.1.0", "--input", inputDirectory, "--output", outputDirectory);
-
-        Assert.NotEqual(0, result.ExitCode);
-    }
-
-    [Fact]
-    public void BuildReleaseScriptFailsClearlyWhenZipIsUnavailable()
-    {
-        using var tempDirectory = new TempDirectory();
-        var inputDirectory = tempDirectory.CreateDirectory("input");
-        var outputDirectory = tempDirectory.CreateDirectory("output");
-
-        WriteRequiredPluginFiles(inputDirectory);
-
-        var result = RunReleaseScript(
-            CreateScriptEnvironmentPath(tempDirectory, includeZipShim: false),
-            "--tag",
-            "v0.1.0",
-            "--input",
-            inputDirectory,
-            "--output",
-            outputDirectory);
-
-        Assert.NotEqual(0, result.ExitCode);
-        Assert.Contains("zip is required", result.StandardError, StringComparison.OrdinalIgnoreCase);
-    }
-
     private static void WriteRequiredPluginFiles(string inputDirectory)
     {
         Directory.CreateDirectory(inputDirectory);
@@ -173,7 +221,22 @@ public sealed class ReleaseScriptTests
             """;
     }
 
-    private static ReleaseScriptResult RunReleaseScript(string pathEnvironment, params string[] arguments)
+    private static ReleaseScriptResult RunReleaseScript(params string[] arguments)
+    {
+        return RunReleaseScriptCore(Environment.GetEnvironmentVariable("PATH") ?? string.Empty, RepoRoot, arguments);
+    }
+
+    private static ReleaseScriptResult RunReleaseScriptWithPath(string pathEnvironment, params string[] arguments)
+    {
+        return RunReleaseScriptCore(pathEnvironment, RepoRoot, arguments);
+    }
+
+    private static ReleaseScriptResult RunReleaseScriptWithPathAndWorkingDirectory(string pathEnvironment, string workingDirectory, params string[] arguments)
+    {
+        return RunReleaseScriptCore(pathEnvironment, workingDirectory, arguments);
+    }
+
+    private static ReleaseScriptResult RunReleaseScriptCore(string pathEnvironment, string workingDirectory, params string[] arguments)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -181,6 +244,7 @@ public sealed class ReleaseScriptTests
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+            WorkingDirectory = workingDirectory,
         };
         startInfo.Environment["PATH"] = pathEnvironment;
 
@@ -201,7 +265,7 @@ public sealed class ReleaseScriptTests
         return new ReleaseScriptResult(process.ExitCode, standardOutput, standardError);
     }
 
-    private static string CreateScriptEnvironmentPath(TempDirectory tempDirectory, bool includeZipShim)
+    private static string CreateScriptEnvironmentPath(TempDirectory tempDirectory, bool includeZipShim, bool includeBsdtar = true)
     {
         var toolDirectory = tempDirectory.CreateDirectory(includeZipShim ? "tools-with-zip" : "tools-without-zip");
 
@@ -210,6 +274,13 @@ public sealed class ReleaseScriptTests
             File.CreateSymbolicLink(
                 Path.Combine(toolDirectory, command),
                 ResolveRequiredCommandPath(command));
+        }
+
+        if (includeBsdtar)
+        {
+            File.CreateSymbolicLink(
+                Path.Combine(toolDirectory, "bsdtar"),
+                ResolveRequiredCommandPath("bsdtar"));
         }
 
         if (includeZipShim)
@@ -277,6 +348,8 @@ public sealed class ReleaseScriptTests
         {
             Directory.CreateDirectory(rootPath);
         }
+
+        public string RootPath => rootPath;
 
         public string CreateDirectory(string name)
         {

@@ -12,6 +12,13 @@ fail() {
   exit 1
 }
 
+make_absolute_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "$(pwd)" "$1" ;;
+  esac
+}
+
 tag=""
 input_dir=""
 output_dir=""
@@ -40,8 +47,18 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$tag" && -n "$input_dir" && -n "$output_dir" ]] || usage
+input_dir="$(make_absolute_path "$input_dir")"
+output_dir="$(make_absolute_path "$output_dir")"
 [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || fail "Tag must match vX.Y.Z without zero-padded segments."
-command -v zip >/dev/null 2>&1 || fail "zip is required to create release archives."
+
+archive_tool=""
+if command -v zip >/dev/null 2>&1; then
+  archive_tool="zip"
+elif command -v bsdtar >/dev/null 2>&1; then
+  archive_tool="bsdtar"
+else
+  fail "zip or bsdtar is required to create release archives."
+fi
 
 version="${tag#v}"
 
@@ -74,7 +91,11 @@ zip_path="$output_dir/FFXIVTelegram-$version.zip"
 rm -f "$zip_path"
 (
   cd "$stage_dir"
-  zip -q "$zip_path" FFXIVTelegram.dll FFXIVTelegram.deps.json FFXIVTelegram.json
+  if [[ "$archive_tool" == "zip" ]]; then
+    zip -q "$zip_path" FFXIVTelegram.dll FFXIVTelegram.deps.json FFXIVTelegram.json
+  else
+    bsdtar -a -cf "$zip_path" FFXIVTelegram.dll FFXIVTelegram.deps.json FFXIVTelegram.json
+  fi
 )
 
 last_update="$(date -u +%s)"
