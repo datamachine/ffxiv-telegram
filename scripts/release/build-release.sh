@@ -41,6 +41,7 @@ done
 
 [[ -n "$tag" && -n "$input_dir" && -n "$output_dir" ]] || usage
 [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || fail "Tag must match vX.Y.Z without zero-padded segments."
+command -v zip >/dev/null 2>&1 || fail "zip is required to create release archives."
 
 version="${tag#v}"
 
@@ -73,13 +74,7 @@ zip_path="$output_dir/FFXIVTelegram-$version.zip"
 rm -f "$zip_path"
 (
   cd "$stage_dir"
-  if command -v zip >/dev/null 2>&1; then
-    zip -q "$zip_path" FFXIVTelegram.dll FFXIVTelegram.deps.json FFXIVTelegram.json
-  elif command -v bsdtar >/dev/null 2>&1; then
-    bsdtar -a -cf "$zip_path" FFXIVTelegram.dll FFXIVTelegram.deps.json FFXIVTelegram.json
-  else
-    fail "Neither zip nor bsdtar is available to create release archives."
-  fi
+  zip -q "$zip_path" FFXIVTelegram.dll FFXIVTelegram.deps.json FFXIVTelegram.json
 )
 
 last_update="$(date -u +%s)"

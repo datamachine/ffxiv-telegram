@@ -9,6 +9,20 @@ public sealed class ReleaseScriptTests
 {
     private static readonly string RepoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
     private static readonly string ScriptPath = Path.Combine(RepoRoot, "scripts", "release", "build-release.sh");
+    private static readonly string BashPath = ResolveRequiredCommandPath("bash");
+    private static readonly string[] RequiredScriptCommands =
+    [
+        "bash",
+        "mkdir",
+        "mktemp",
+        "cp",
+        "sed",
+        "mv",
+        "grep",
+        "date",
+        "bsdtar",
+        "rm",
+    ];
 
     [Fact]
     public void BuildReleaseScriptCreatesVersionedZipAndRepoJson()
@@ -19,7 +33,14 @@ public sealed class ReleaseScriptTests
 
         WriteRequiredPluginFiles(inputDirectory);
 
-        var result = RunReleaseScript("--tag", "v0.1.0", "--input", inputDirectory, "--output", outputDirectory);
+        var result = RunReleaseScript(
+            CreateScriptEnvironmentPath(tempDirectory, includeZipShim: true),
+            "--tag",
+            "v0.1.0",
+            "--input",
+            inputDirectory,
+            "--output",
+            outputDirectory);
         var zipPath = Path.Combine(outputDirectory, "FFXIVTelegram-0.1.0.zip");
         var repoJsonPath = Path.Combine(outputDirectory, "repo.json");
 
@@ -99,6 +120,28 @@ public sealed class ReleaseScriptTests
         Assert.NotEqual(0, result.ExitCode);
     }
 
+    [Fact]
+    public void BuildReleaseScriptFailsClearlyWhenZipIsUnavailable()
+    {
+        using var tempDirectory = new TempDirectory();
+        var inputDirectory = tempDirectory.CreateDirectory("input");
+        var outputDirectory = tempDirectory.CreateDirectory("output");
+
+        WriteRequiredPluginFiles(inputDirectory);
+
+        var result = RunReleaseScript(
+            CreateScriptEnvironmentPath(tempDirectory, includeZipShim: false),
+            "--tag",
+            "v0.1.0",
+            "--input",
+            inputDirectory,
+            "--output",
+            outputDirectory);
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("zip is required", result.StandardError, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static void WriteRequiredPluginFiles(string inputDirectory)
     {
         Directory.CreateDirectory(inputDirectory);
@@ -130,15 +173,16 @@ public sealed class ReleaseScriptTests
             """;
     }
 
-    private static ReleaseScriptResult RunReleaseScript(params string[] arguments)
+    private static ReleaseScriptResult RunReleaseScript(string pathEnvironment, params string[] arguments)
     {
         var startInfo = new ProcessStartInfo
         {
-            FileName = "bash",
+            FileName = BashPath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        startInfo.Environment["PATH"] = pathEnvironment;
 
         startInfo.ArgumentList.Add(ScriptPath);
 
@@ -155,6 +199,66 @@ public sealed class ReleaseScriptTests
         process.WaitForExit();
 
         return new ReleaseScriptResult(process.ExitCode, standardOutput, standardError);
+    }
+
+    private static string CreateScriptEnvironmentPath(TempDirectory tempDirectory, bool includeZipShim)
+    {
+        var toolDirectory = tempDirectory.CreateDirectory(includeZipShim ? "tools-with-zip" : "tools-without-zip");
+
+        foreach (var command in RequiredScriptCommands)
+        {
+            File.CreateSymbolicLink(
+                Path.Combine(toolDirectory, command),
+                ResolveRequiredCommandPath(command));
+        }
+
+        if (includeZipShim)
+        {
+            var zipShimPath = Path.Combine(toolDirectory, "zip");
+            File.WriteAllText(
+                zipShimPath,
+                """
+                #!/usr/bin/env bash
+                set -euo pipefail
+
+                if [[ "${1:-}" == "-q" ]]; then
+                  shift
+                fi
+
+                archive_path="$1"
+                shift
+
+                exec bsdtar -a -cf "$archive_path" "$@"
+                """,
+                new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(
+                    zipShimPath,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                    UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                    UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+            }
+        }
+
+        return toolDirectory;
+    }
+
+    private static string ResolveRequiredCommandPath(string command)
+    {
+        var pathEntries = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var pathEntry in pathEntries)
+        {
+            var candidate = Path.Combine(pathEntry, command);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new InvalidOperationException($"Could not resolve required command '{command}' from PATH.");
     }
 
     private sealed record ReleaseScriptResult(int ExitCode, string StandardOutput, string StandardError)
