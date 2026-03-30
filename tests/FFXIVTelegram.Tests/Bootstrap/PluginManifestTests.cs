@@ -11,7 +11,7 @@ public sealed class PluginManifestTests
         var manifestPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../src/FFXIVTelegram/FFXIVTelegram.json"));
         using var document = JsonDocument.Parse(File.ReadAllText(manifestPath));
 
-        Assert.Equal("vcastellano", document.RootElement.GetProperty("Author").GetString());
+        Assert.Equal("Surye", document.RootElement.GetProperty("Author").GetString());
         Assert.Equal("FFXIV Telegram", document.RootElement.GetProperty("Name").GetString());
         Assert.Equal("Bridges FFXIV chat and Telegram.", document.RootElement.GetProperty("Description").GetString());
         Assert.Equal("Bridging Eorzea and Telegram.", document.RootElement.GetProperty("Punchline").GetString());
