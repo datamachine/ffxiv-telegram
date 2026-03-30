@@ -1,0 +1,105 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Validate stable tag and derive release variables
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Tag must match vX.Y.Z without zero-padded segments." >&2
+            exit 1
+          fi
+
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          asset_name="FFXIVTelegram-${version}.zip"
+
+          {
+            echo "TAG=${tag}"
+            echo "VERSION=${version}"
+            echo "ASSET_NAME=${asset_name}"
+          } >> "$GITHUB_ENV"
+
+      - name: Build solution
+        run: dotnet build FFXIVTelegram.sln -c Release -v minimal
+
+      - name: Run test suite
+        run: dotnet test tests/FFXIVTelegram.Tests/FFXIVTelegram.Tests.csproj -v minimal
+
+      - name: Build plugin output
+        run: dotnet build src/FFXIVTelegram/FFXIVTelegram.csproj -c Release -o artifacts/plugin-release -v minimal
+
+      - name: Build release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/release/build-release.sh --tag "$GITHUB_REF_NAME" --input artifacts/plugin-release --output artifacts/release
+
+      - name: Validate release outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -f "artifacts/release/${ASSET_NAME}" ]] || {
+            echo "Missing release archive: artifacts/release/${ASSET_NAME}" >&2
+            exit 1
+          }
+          [[ -f "artifacts/release/repo.json" ]] || {
+            echo "Missing release manifest: artifacts/release/repo.json" >&2
+            exit 1
+          }
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$VERSION" --notes ""
+          gh release upload "$TAG" "artifacts/release/$ASSET_NAME" --clobber
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Stage Pages artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/pages
+          cp artifacts/release/repo.json artifacts/pages/repo.json
+          touch artifacts/pages/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/pages
+
+      - name: Deploy to GitHub Pages
+        id: deploy-pages
+        uses: actions/deploy-pages@v4
