@@ -1,6 +1,8 @@
 namespace FFXIVTelegram.Tests.TestDoubles;
 
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Dalamud.Game.Command;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
@@ -220,4 +222,29 @@ internal class PlayerStateTestDouble : DispatchProxy
         proxy.CharacterName = localPlayerName;
         return playerState;
     }
+}
+
+internal sealed class FakeNotificationDispatcher : FFXIVTelegram.Notifications.INotificationDispatcher
+{
+    public List<DispatchCall> Calls { get; } = new();
+
+    public Func<DispatchCall, Task>? OnSend { get; set; }
+
+    public Task SendAsync(string text, FFXIVTelegram.Chat.ChatRoute? replyRoute, CancellationToken cancellationToken)
+    {
+        var call = new DispatchCall(text, replyRoute);
+        this.Calls.Add(call);
+        return this.OnSend?.Invoke(call) ?? Task.CompletedTask;
+    }
+
+    public sealed record DispatchCall(string Text, FFXIVTelegram.Chat.ChatRoute? ReplyRoute);
+}
+
+internal sealed class ManualTimeProvider : TimeProvider
+{
+    public DateTimeOffset Now { get; set; } = new DateTimeOffset(2026, 4, 11, 12, 0, 0, TimeSpan.Zero);
+
+    public override DateTimeOffset GetUtcNow() => this.Now;
+
+    public void Advance(TimeSpan delta) => this.Now += delta;
 }
