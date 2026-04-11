@@ -248,3 +248,39 @@ internal sealed class ManualTimeProvider : TimeProvider
 
     public void Advance(TimeSpan delta) => this.Now += delta;
 }
+
+internal class AddonLifecycleTestDouble : DispatchProxy
+{
+    public int RegisterCallCount { get; private set; }
+
+    public int UnregisterCallCount { get; private set; }
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        if (targetMethod == null)
+        {
+            throw new ArgumentNullException(nameof(targetMethod));
+        }
+
+        if (targetMethod.Name == "RegisterListener")
+        {
+            this.RegisterCallCount++;
+            return null;
+        }
+
+        if (targetMethod.Name == "UnregisterListener")
+        {
+            this.UnregisterCallCount++;
+            return null;
+        }
+
+        throw new NotSupportedException(targetMethod.Name);
+    }
+
+    public static IAddonLifecycle Create(out AddonLifecycleTestDouble proxy)
+    {
+        var addonLifecycle = DispatchProxy.Create<IAddonLifecycle, AddonLifecycleTestDouble>();
+        proxy = (AddonLifecycleTestDouble)(object)addonLifecycle;
+        return addonLifecycle;
+    }
+}
