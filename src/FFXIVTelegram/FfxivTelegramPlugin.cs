@@ -1,11 +1,13 @@
 namespace FFXIVTelegram;
 
+using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVTelegram.Chat;
 using FFXIVTelegram.Commands;
 using FFXIVTelegram.Configuration;
 using FFXIVTelegram.Interop;
+using FFXIVTelegram.Notifications;
 using FFXIVTelegram.Telegram;
 using FFXIVTelegram.UI;
 using System;
@@ -23,6 +25,9 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
     private readonly ChatInjectionService chatInjectionService;
     private readonly UiController uiController;
     private readonly GameChatMonitor gameChatMonitor;
+    private readonly NotificationDispatcher notificationDispatcher;
+    private readonly SocialPresenceNotifier socialPresenceNotifier;
+    private readonly DutyPopNotifier dutyPopNotifier;
     private readonly TelegramInboundPipeline inboundPipeline;
     private readonly CancellationTokenSource shutdownTokenSource = new();
     private readonly Task pollingTask;
@@ -35,7 +40,8 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
         IPlayerState playerState,
         IGameGui gameGui,
         ICommandManager commandManager,
-        IFramework framework)
+        IFramework framework,
+        IAddonLifecycle addonLifecycle)
     {
         var configurationStore = new ConfigurationStore(pluginInterface);
         var configuration = configurationStore.Load();
@@ -45,6 +51,9 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
         var replyMap = new TelegramReplyMap(capacity: 100, maxAge: TimeSpan.FromMinutes(30));
         this.telegramBridge = new TelegramBridgeService(configuration, this.telegramClientAdapter, configurationStore);
         this.gameChatMonitor = new GameChatMonitor(chatGui, playerState, configuration, this.telegramBridge, replyMap);
+        this.notificationDispatcher = new NotificationDispatcher(this.telegramBridge, replyMap);
+        this.socialPresenceNotifier = new SocialPresenceNotifier(chatGui, this.notificationDispatcher, configuration, TimeProvider.System);
+        this.dutyPopNotifier = new DutyPopNotifier(addonLifecycle, this.notificationDispatcher, configuration, TimeProvider.System);
         var frameworkDispatcher = new FrameworkDispatcher(framework);
         this.gameChatExecutor = new XivChatGameChatExecutor(gameGui);
         this.chatInjectionService = new ChatInjectionService(frameworkDispatcher, this.gameChatExecutor, TimeSpan.FromMilliseconds(500));
@@ -72,6 +81,8 @@ public sealed class FfxivTelegramPlugin : IDalamudPlugin
 
         this.shutdownTokenSource.Dispose();
         this.commandHandler.Dispose();
+        this.dutyPopNotifier.Dispose();
+        this.socialPresenceNotifier.Dispose();
         this.gameChatMonitor.Dispose();
         this.chatInjectionService.Dispose();
         this.telegramClientAdapter.Dispose();
