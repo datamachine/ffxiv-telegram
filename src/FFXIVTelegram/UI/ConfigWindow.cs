@@ -49,12 +49,18 @@ public sealed class ConfigWindow
         bool enableTellForwarding;
         bool enablePartyForwarding;
         bool enableFreeCompanyForwarding;
+        bool enableFriendPresenceNotifications;
+        bool enableFreeCompanyPresenceNotifications;
+        bool enableDutyPopNotifications;
         lock (this.configuration)
         {
             authorizedChatId = this.configuration.AuthorizedChatId;
             enableTellForwarding = this.configuration.EnableTellForwarding;
             enablePartyForwarding = this.configuration.EnablePartyForwarding;
             enableFreeCompanyForwarding = this.configuration.EnableFreeCompanyForwarding;
+            enableFriendPresenceNotifications = this.configuration.EnableFriendPresenceNotifications;
+            enableFreeCompanyPresenceNotifications = this.configuration.EnableFreeCompanyPresenceNotifications;
+            enableDutyPopNotifications = this.configuration.EnableDutyPopNotifications;
         }
 
         if (authorizedChatId is long currentAuthorizedChatId)
@@ -108,6 +114,31 @@ public sealed class ConfigWindow
             }
         }
 
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        ImGui.TextUnformatted("Notifications");
+        ImGui.Spacing();
+
+        if (ImGui.Checkbox("Notify on friend login/logout", ref enableFriendPresenceNotifications))
+        {
+            this.SetEnableFriendPresenceNotifications(enableFriendPresenceNotifications);
+        }
+
+        ImGui.TextWrapped("Requires the friend login/logout chat log filter to be enabled in game.");
+
+        if (ImGui.Checkbox("Notify on FC member login/logout", ref enableFreeCompanyPresenceNotifications))
+        {
+            this.SetEnableFreeCompanyPresenceNotifications(enableFreeCompanyPresenceNotifications);
+        }
+
+        ImGui.TextWrapped("Requires the FC login/logout chat log filter to be enabled in game.");
+
+        if (ImGui.Checkbox("Notify on duty pop", ref enableDutyPopNotifications))
+        {
+            this.SetEnableDutyPopNotifications(enableDutyPopNotifications);
+        }
+
         ImGui.End();
     }
 
@@ -142,6 +173,33 @@ public sealed class ConfigWindow
                 this.telegramBotTokenBuffer = previousToken;
                 throw;
             }
+        }
+    }
+
+    internal void SetEnableFriendPresenceNotifications(bool value)
+    {
+        lock (this.configuration)
+        {
+            this.configuration.EnableFriendPresenceNotifications = value;
+            this.configurationStore.Save(this.configuration);
+        }
+    }
+
+    internal void SetEnableFreeCompanyPresenceNotifications(bool value)
+    {
+        lock (this.configuration)
+        {
+            this.configuration.EnableFreeCompanyPresenceNotifications = value;
+            this.configurationStore.Save(this.configuration);
+        }
+    }
+
+    internal void SetEnableDutyPopNotifications(bool value)
+    {
+        lock (this.configuration)
+        {
+            this.configuration.EnableDutyPopNotifications = value;
+            this.configurationStore.Save(this.configuration);
         }
     }
 }

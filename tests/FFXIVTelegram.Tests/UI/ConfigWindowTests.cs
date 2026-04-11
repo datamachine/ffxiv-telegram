@@ -83,4 +83,46 @@ public sealed class ConfigWindowTests
         Assert.Equal(42, configuration.AuthorizedChatId);
         Assert.Null(pluginProxy.SavedConfiguration);
     }
+
+    [Fact]
+    public void EnablingFriendPresenceNotificationsPersistsConfiguration()
+    {
+        var configuration = new FfxivTelegramConfiguration();
+        var plugin = DalamudPluginInterfaceTestDouble.Create(null, out var pluginProxy, out _);
+        var store = new ConfigurationStore(plugin);
+        var window = new ConfigWindow(configuration, store);
+
+        window.SetEnableFriendPresenceNotifications(true);
+
+        Assert.True(configuration.EnableFriendPresenceNotifications);
+        Assert.Same(configuration, pluginProxy.SavedConfiguration);
+    }
+
+    [Fact]
+    public void EnablingFreeCompanyPresenceNotificationsPersistsConfiguration()
+    {
+        var configuration = new FfxivTelegramConfiguration();
+        var plugin = DalamudPluginInterfaceTestDouble.Create(null, out var pluginProxy, out _);
+        var store = new ConfigurationStore(plugin);
+        var window = new ConfigWindow(configuration, store);
+
+        window.SetEnableFreeCompanyPresenceNotifications(true);
+
+        Assert.True(configuration.EnableFreeCompanyPresenceNotifications);
+        Assert.Same(configuration, pluginProxy.SavedConfiguration);
+    }
+
+    [Fact]
+    public void EnablingDutyPopNotificationsPersistsConfiguration()
+    {
+        var configuration = new FfxivTelegramConfiguration();
+        var plugin = DalamudPluginInterfaceTestDouble.Create(null, out var pluginProxy, out _);
+        var store = new ConfigurationStore(plugin);
+        var window = new ConfigWindow(configuration, store);
+
+        window.SetEnableDutyPopNotifications(true);
+
+        Assert.True(configuration.EnableDutyPopNotifications);
+        Assert.Same(configuration, pluginProxy.SavedConfiguration);
+    }
 }
