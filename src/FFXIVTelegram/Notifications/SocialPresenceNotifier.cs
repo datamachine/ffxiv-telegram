@@ -1,5 +1,6 @@
 namespace FFXIVTelegram.Notifications;
 
+using System.Collections.Generic;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
@@ -13,10 +14,14 @@ public sealed class SocialPresenceNotifier : IDisposable
     private const string LoginSuffix = "has logged in";
     private const string LogoutSuffix = "has logged out";
     private const string FcPrefix = "[FC]";
+    private static readonly TimeSpan DedupeWindow = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan DedupeEvictionAge = TimeSpan.FromSeconds(60);
     private readonly IChatGui chatGui;
     private readonly INotificationDispatcher dispatcher;
     private readonly FfxivTelegramConfiguration configuration;
     private readonly TimeProvider timeProvider;
+    private readonly object dedupeGate = new();
+    private readonly Dictionary<(SocialEventKind Kind, string Name), DateTimeOffset> lastFiredAt = new();
 
     public SocialPresenceNotifier(
         IChatGui chatGui,
@@ -52,6 +57,16 @@ public sealed class SocialPresenceNotifier : IDisposable
 
         var parsed = TryParse(text);
         if (parsed is not (SocialEventKind kind, string name))
+        {
+            return;
+        }
+
+        if (!this.IsEnabled(kind))
+        {
+            return;
+        }
+
+        if (!this.AcceptForDedupe(kind, name))
         {
             return;
         }
@@ -126,5 +141,53 @@ public sealed class SocialPresenceNotifier : IDisposable
             SocialEventKind.FcLogout => "[FC] " + name + " logged out",
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
+    }
+
+    private bool IsEnabled(SocialEventKind kind)
+    {
+        return kind switch
+        {
+            SocialEventKind.FriendLogin or SocialEventKind.FriendLogout => this.configuration.EnableFriendPresenceNotifications,
+            SocialEventKind.FcLogin or SocialEventKind.FcLogout => this.configuration.EnableFreeCompanyPresenceNotifications,
+            _ => false,
+        };
+    }
+
+    private bool AcceptForDedupe(SocialEventKind kind, string name)
+    {
+        var now = this.timeProvider.GetUtcNow();
+        var key = (kind, name);
+
+        lock (this.dedupeGate)
+        {
+            this.EvictOldEntries(now);
+
+            if (this.lastFiredAt.TryGetValue(key, out var lastFired) && now - lastFired < DedupeWindow)
+            {
+                return false;
+            }
+
+            this.lastFiredAt[key] = now;
+            return true;
+        }
+    }
+
+    private void EvictOldEntries(DateTimeOffset now)
+    {
+        var threshold = now - DedupeEvictionAge;
+        var staleKeys = new List<(SocialEventKind Kind, string Name)>();
+
+        foreach (var entry in this.lastFiredAt)
+        {
+            if (entry.Value < threshold)
+            {
+                staleKeys.Add(entry.Key);
+            }
+        }
+
+        foreach (var key in staleKeys)
+        {
+            this.lastFiredAt.Remove(key);
+        }
     }
 }

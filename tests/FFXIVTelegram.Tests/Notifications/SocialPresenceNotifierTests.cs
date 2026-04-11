@@ -103,6 +103,88 @@ public sealed class SocialPresenceNotifierTests
         Assert.Empty(fixture.Dispatcher.Calls);
     }
 
+    [Fact]
+    public async Task RepeatEventForSameKindWithinTenSecondsIsDeduped()
+    {
+        var fixture = CreateFixture();
+
+        RaiseSystemMessage(fixture, "Alice Example has logged in.");
+        await Task.Yield();
+
+        fixture.Time.Advance(TimeSpan.FromSeconds(5));
+        RaiseSystemMessage(fixture, "Alice Example has logged in.");
+        await Task.Yield();
+
+        Assert.Single(fixture.Dispatcher.Calls);
+    }
+
+    [Fact]
+    public async Task RepeatEventForSameKindAfterTenSecondsDispatchesAgain()
+    {
+        var fixture = CreateFixture();
+
+        RaiseSystemMessage(fixture, "Alice Example has logged in.");
+        await Task.Yield();
+
+        fixture.Time.Advance(TimeSpan.FromSeconds(11));
+        RaiseSystemMessage(fixture, "Alice Example has logged in.");
+        await Task.Yield();
+
+        Assert.Equal(2, fixture.Dispatcher.Calls.Count);
+    }
+
+    [Fact]
+    public async Task DifferentKindsForSameNameWithinDedupeWindowBothDispatch()
+    {
+        var fixture = CreateFixture();
+
+        RaiseSystemMessage(fixture, "Alice Example has logged in.");
+        await Task.Yield();
+
+        fixture.Time.Advance(TimeSpan.FromSeconds(5));
+        RaiseSystemMessage(fixture, "Alice Example has logged out.");
+        await Task.Yield();
+
+        Assert.Equal(2, fixture.Dispatcher.Calls.Count);
+        Assert.Equal("[Friend] Alice Example logged in", fixture.Dispatcher.Calls[0].Text);
+        Assert.Equal("[Friend] Alice Example logged out", fixture.Dispatcher.Calls[1].Text);
+    }
+
+    [Fact]
+    public async Task FriendPresenceToggleOffPreventsDispatch()
+    {
+        var fixture = CreateFixture(c => c.EnableFriendPresenceNotifications = false);
+
+        RaiseSystemMessage(fixture, "Alice Example has logged in.");
+        await Task.Yield();
+
+        Assert.Empty(fixture.Dispatcher.Calls);
+    }
+
+    [Fact]
+    public async Task FreeCompanyPresenceToggleOffPreventsDispatch()
+    {
+        var fixture = CreateFixture(c => c.EnableFreeCompanyPresenceNotifications = false);
+
+        RaiseSystemMessage(fixture, "[FC]Bob Example has logged in.");
+        await Task.Yield();
+
+        Assert.Empty(fixture.Dispatcher.Calls);
+    }
+
+    [Fact]
+    public async Task CrossWorldNameSuffixIsPreserved()
+    {
+        var fixture = CreateFixture();
+
+        RaiseSystemMessage(fixture, "Alice Example@Phoenix has logged in.");
+        await Task.Yield();
+
+        var call = Assert.Single(fixture.Dispatcher.Calls);
+        Assert.Equal("[Friend] Alice Example@Phoenix logged in", call.Text);
+        Assert.Equal(FFXIVTelegram.Chat.ChatRoute.Tell("Alice Example@Phoenix"), call.ReplyRoute);
+    }
+
     private static Fixture CreateFixture(Action<FfxivTelegramConfiguration>? configure = null)
     {
         var configuration = new FfxivTelegramConfiguration
