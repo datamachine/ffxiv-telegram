@@ -15,4 +15,14 @@ public sealed class FfxivTelegramConfigurationTests
         Assert.True(config.EnableFreeCompanyForwarding);
         Assert.Null(config.AuthorizedChatId);
     }
+
+    [Fact]
+    public void NotificationTogglesDefaultOff()
+    {
+        var config = new FfxivTelegramConfiguration();
+
+        Assert.False(config.EnableFriendPresenceNotifications);
+        Assert.False(config.EnableFreeCompanyPresenceNotifications);
+        Assert.False(config.EnableDutyPopNotifications);
+    }
 }
