@@ -19,4 +19,10 @@ public sealed class FfxivTelegramConfiguration : IPluginConfiguration
     public bool EnablePartyForwarding { get; set; } = true;
 
     public bool EnableFreeCompanyForwarding { get; set; } = true;
+
+    public bool EnableFriendPresenceNotifications { get; set; }
+
+    public bool EnableFreeCompanyPresenceNotifications { get; set; }
+
+    public bool EnableDutyPopNotifications { get; set; }
 }
