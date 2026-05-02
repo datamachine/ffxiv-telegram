@@ -1,5 +1,6 @@
 namespace FFXIVTelegram.Chat;
 
+using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
@@ -88,9 +89,9 @@ public sealed class GameChatMonitor : IDisposable
         this.UpdateRouteContext(route);
     }
 
-    private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+    private void OnChatMessage(IHandleableChatMessage message)
     {
-        _ = this.ForwardSafelyAsync(type, sender.TextValue, message.TextValue, CancellationToken.None);
+        _ = this.ForwardSafelyAsync(message.LogKind, message.Sender.TextValue, message.Message.TextValue, CancellationToken.None);
     }
 
     private async Task ForwardSafelyAsync(XivChatType type, string sender, string message, CancellationToken cancellationToken)

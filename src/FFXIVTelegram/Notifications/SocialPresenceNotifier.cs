@@ -1,6 +1,7 @@
 namespace FFXIVTelegram.Notifications;
 
 using System.Collections.Generic;
+using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
@@ -42,14 +43,14 @@ public sealed class SocialPresenceNotifier : IDisposable
         this.chatGui.ChatMessage -= this.OnChatMessage;
     }
 
-    private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+    private void OnChatMessage(IHandleableChatMessage message)
     {
-        if (type != XivChatType.SystemMessage)
+        if (message.LogKind != XivChatType.SystemMessage)
         {
             return;
         }
 
-        var text = message.TextValue;
+        var text = message.Message.TextValue;
         if (string.IsNullOrWhiteSpace(text))
         {
             return;

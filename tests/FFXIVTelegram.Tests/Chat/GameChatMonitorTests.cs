@@ -19,13 +19,11 @@ public sealed class GameChatMonitorTests
     {
         var fixture = this.CreateFixture(sendResult: TelegramSendResult.Ok(321));
 
-        var isHandled = false;
         fixture.ChatGuiProxy.RaiseChatMessage(
             XivChatType.FreeCompany,
             timestamp: 0,
             sender: "Alice Example",
-            message: "Hello!",
-            ref isHandled);
+            message: "Hello!");
 
         await Task.Yield();
 
@@ -37,13 +35,11 @@ public sealed class GameChatMonitorTests
 
         fixture.Monitor.Dispose();
 
-        isHandled = false;
         fixture.ChatGuiProxy.RaiseChatMessage(
             XivChatType.FreeCompany,
             timestamp: 0,
             sender: "Alice Example",
-            message: "Hello again!",
-            ref isHandled);
+            message: "Hello again!");
 
         await Task.Yield();
 

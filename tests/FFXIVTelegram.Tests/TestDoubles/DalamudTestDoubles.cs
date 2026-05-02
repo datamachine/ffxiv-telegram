@@ -3,6 +3,7 @@ namespace FFXIVTelegram.Tests.TestDoubles;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Dalamud.Game.Chat;
 using Dalamud.Game.Command;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
@@ -10,6 +11,7 @@ using Dalamud.Configuration;
 using Dalamud.Interface;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using Lumina.Text.ReadOnly;
 
 internal class DalamudPluginInterfaceTestDouble : DispatchProxy
 {
@@ -125,7 +127,7 @@ internal class UiBuilderTestDouble : DispatchProxy
 
 internal class ChatGuiTestDouble : DispatchProxy
 {
-    private IChatGui.OnMessageDelegate? chatMessage;
+    private IChatGui.OnHandleableChatMessageDelegate? chatMessage;
 
     public int ChatMessageSubscriberCount => this.chatMessage?.GetInvocationList().Length ?? 0;
 
@@ -139,10 +141,10 @@ internal class ChatGuiTestDouble : DispatchProxy
         switch (targetMethod.Name)
         {
             case "add_ChatMessage":
-                this.chatMessage += (IChatGui.OnMessageDelegate?)args?[0];
+                this.chatMessage += (IChatGui.OnHandleableChatMessageDelegate?)args?[0];
                 return null;
             case "remove_ChatMessage":
-                this.chatMessage -= (IChatGui.OnMessageDelegate?)args?[0];
+                this.chatMessage -= (IChatGui.OnHandleableChatMessageDelegate?)args?[0];
                 return null;
             default:
                 throw new NotSupportedException(targetMethod.Name);
@@ -156,9 +158,68 @@ internal class ChatGuiTestDouble : DispatchProxy
         return chatGui;
     }
 
-    public void RaiseChatMessage(XivChatType type, int timestamp, SeString sender, SeString message, ref bool isHandled)
+    public void RaiseChatMessage(XivChatType type, int timestamp, SeString sender, SeString message)
     {
-        this.chatMessage?.Invoke(type, timestamp, ref sender, ref message, ref isHandled);
+        this.chatMessage?.Invoke(new FakeHandleableChatMessage(type, timestamp, sender, message));
+    }
+}
+
+internal sealed class FakeHandleableChatMessage : IHandleableChatMessage
+{
+    private SeString sender;
+    private SeString message;
+
+    public FakeHandleableChatMessage(XivChatType logKind, int timestamp, SeString sender, SeString message)
+    {
+        this.LogKind = logKind;
+        this.Timestamp = timestamp;
+        this.sender = sender;
+        this.message = message;
+        this.OriginalSender = sender.TextValue;
+        this.OriginalMessage = message.TextValue;
+    }
+
+    public XivChatType LogKind { get; }
+
+    public XivChatRelationKind SourceKind { get; } = XivChatRelationKind.None;
+
+    public XivChatRelationKind TargetKind { get; } = XivChatRelationKind.None;
+
+    public ReadOnlySeString OriginalSender { get; }
+
+    public ReadOnlySeString OriginalMessage { get; }
+
+    public SeString Sender
+    {
+        get => this.sender;
+        set
+        {
+            this.sender = value;
+            this.SenderModified = true;
+        }
+    }
+
+    public SeString Message
+    {
+        get => this.message;
+        set
+        {
+            this.message = value;
+            this.MessageModified = true;
+        }
+    }
+
+    public bool SenderModified { get; private set; }
+
+    public bool MessageModified { get; private set; }
+
+    public int Timestamp { get; }
+
+    public bool IsHandled { get; private set; }
+
+    public void PreventOriginal()
+    {
+        this.IsHandled = true;
     }
 }
 

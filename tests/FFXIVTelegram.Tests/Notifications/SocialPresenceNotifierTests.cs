@@ -80,13 +80,11 @@ public sealed class SocialPresenceNotifierTests
     {
         var fixture = CreateFixture();
 
-        var isHandled = false;
         fixture.ChatGuiProxy.RaiseChatMessage(
             XivChatType.FreeCompany,
             timestamp: 0,
             sender: "Alice Example",
-            message: "Alice Example has logged in.",
-            ref isHandled);
+            message: "Alice Example has logged in.");
         await Task.Yield();
 
         Assert.Empty(fixture.Dispatcher.Calls);
@@ -211,14 +209,12 @@ public sealed class SocialPresenceNotifierTests
 
     private static void RaiseSystemMessage(Fixture fixture, string text)
     {
-        var isHandled = false;
         SeString sender = string.Empty;
         SeString message = text;
         fixture.ChatGuiProxy.RaiseChatMessage(
             XivChatType.SystemMessage,
             timestamp: 0,
             sender: sender,
-            message: message,
-            ref isHandled);
+            message: message);
     }
 }

@@ -17,7 +17,7 @@ public sealed class PluginManifestTests
         Assert.Equal("Bridging Eorzea and Telegram.", document.RootElement.GetProperty("Punchline").GetString());
         Assert.Equal("FFXIVTelegram", document.RootElement.GetProperty("InternalName").GetString());
         Assert.Equal("any", document.RootElement.GetProperty("ApplicableVersion").GetString());
-        Assert.Equal(14, document.RootElement.GetProperty("DalamudApiLevel").GetInt32());
+        Assert.Equal(15, document.RootElement.GetProperty("DalamudApiLevel").GetInt32());
         Assert.Equal(0, document.RootElement.GetProperty("LoadPriority").GetInt32());
         Assert.Equal("https://github.com/datamachine/ffxiv-telegram", document.RootElement.GetProperty("RepoUrl").GetString());
 
