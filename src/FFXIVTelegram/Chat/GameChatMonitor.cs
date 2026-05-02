@@ -132,8 +132,9 @@ public sealed class GameChatMonitor : IDisposable
             return false;
         }
 
+        var normalizedSender = GameChatFormatter.NormalizeSender(sender);
         return type is XivChatType.Party or XivChatType.FreeCompany
-            && string.Equals(sender.Trim(), localPlayerName, StringComparison.Ordinal);
+            && string.Equals(normalizedSender, localPlayerName, StringComparison.Ordinal);
     }
 
     private void UpdateRouteContext(ChatRoute route)

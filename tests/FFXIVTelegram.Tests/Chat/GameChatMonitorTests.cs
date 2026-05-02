@@ -154,6 +154,19 @@ public sealed class GameChatMonitorTests
     }
 
     [Fact]
+    public async Task PartyMessageFromLocalPlayerWithSlotGlyphIsNotForwarded()
+    {
+        var fixture = this.CreateFixture(localPlayerName: "Alice Example");
+
+        var result = await fixture.Monitor.ForwardAsync(XivChatType.Party, "\uE000Alice Example", "Hello!");
+
+        Assert.Null(result);
+        Assert.Empty(fixture.Adapter.SentTexts);
+        Assert.Equal(ChatRoute.Party(), fixture.Monitor.CurrentRouteContext.LastActiveRoute);
+        Assert.Null(fixture.Monitor.CurrentRouteContext.LastTellRoute);
+    }
+
+    [Fact]
     public void RecordRouteUsageUpdatesCurrentRouteContext()
     {
         var fixture = this.CreateFixture();
