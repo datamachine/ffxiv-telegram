@@ -3,7 +3,10 @@ namespace FFXIVTelegram.Notifications;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin.Services;
+using Dalamud.Utility;
 using FFXIVTelegram.Configuration;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 
 public sealed class DutyPopNotifier : IDisposable
 {
@@ -74,9 +77,32 @@ public sealed class DutyPopNotifier : IDisposable
         _ = this.TryFireAsync(dutyName, CancellationToken.None);
     }
 
-    private static string? ReadDutyNameFromAddon(AddonArgs args)
+    internal static string? NormalizeDutyName(string? rawDutyName)
     {
-        return null;
+        return string.IsNullOrWhiteSpace(rawDutyName)
+            ? null
+            : rawDutyName.Trim();
+    }
+
+    private static unsafe string? ReadDutyNameFromAddon(AddonArgs args)
+    {
+        if (args.Addon.IsNull)
+        {
+            return null;
+        }
+
+        var addon = (AddonContentsFinderConfirm*)args.Addon.Address;
+        return ReadDutyTitleText(addon->AtkTextNode230);
+    }
+
+    private static unsafe string? ReadDutyTitleText(AtkTextNode* titleNode)
+    {
+        if (titleNode == null)
+        {
+            return null;
+        }
+
+        return NormalizeDutyName(titleNode->OriginalTextPointer.ExtractText());
     }
 
     private static string FormatMessage(string? dutyName)

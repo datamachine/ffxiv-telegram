@@ -82,6 +82,18 @@ public sealed class DutyPopNotifierTests
         Assert.Empty(fixture.Dispatcher.Calls);
     }
 
+    [Fact]
+    public void NormalizeDutyNameTrimsExtractedTitleText()
+    {
+        Assert.Equal("The Aetherfont", DutyPopNotifier.NormalizeDutyName("  The Aetherfont  "));
+    }
+
+    [Fact]
+    public void NormalizeDutyNameReturnsNullForBlankText()
+    {
+        Assert.Null(DutyPopNotifier.NormalizeDutyName("   "));
+    }
+
     private static Fixture CreateFixture(Action<FfxivTelegramConfiguration>? configure = null)
     {
         var configuration = new FfxivTelegramConfiguration
