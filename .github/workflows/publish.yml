@@ -109,6 +109,46 @@ jobs:
         with:
           path: artifacts/pages
 
+      - name: Update shared pluginmaster
+        env:
+          GH_TOKEN: ${{ secrets.PLUGINS_REPO_PAT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PLUGINS_REPO="datamachine/ffxiv-plugins"
+          DOWNLOAD_URL="https://github.com/datamachine/ffxiv-telegram/releases/download/${TAG}/${ASSET_NAME}"
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${PLUGINS_REPO}.git" /tmp/ffxiv-plugins
+
+          cp "$GITHUB_WORKSPACE/artifacts/release/${ASSET_NAME}" /tmp/ffxiv-plugins/
+
+          unzip -p "$GITHUB_WORKSPACE/artifacts/release/${ASSET_NAME}" FFXIVTelegram.json > /tmp/manifest.json
+
+          last_update="$(date -u +%s)"
+
+          entry=$(jq -c --arg dl "$DOWNLOAD_URL" --arg lu "$last_update" \
+            '. + {DownloadLinkInstall: $dl, DownloadLinkUpdate: $dl, DownloadLinkTesting: $dl, LastUpdate: ($lu | tonumber)}' \
+            /tmp/manifest.json)
+
+          cd /tmp/ffxiv-plugins
+
+          if [[ "$(cat pluginmaster.json)" == "[]" ]]; then
+            echo "[$entry]" > pluginmaster.json
+          else
+            internal_name=$(echo "$entry" | jq -r '.InternalName')
+            jq --arg name "$internal_name" 'map(select(.InternalName != $name))' pluginmaster.json > /tmp/pluginmaster.json
+            mv /tmp/pluginmaster.json pluginmaster.json
+            jq --argjson entry "$entry" '. + [$entry]' pluginmaster.json > /tmp/pluginmaster.json
+            mv /tmp/pluginmaster.json pluginmaster.json
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pluginmaster.json "${ASSET_NAME}"
+          git commit -m "Add FFXIVTelegram ${VERSION}" || echo "No changes to commit"
+          git push
+
   deploy-pages:
     runs-on: ubuntu-latest
     needs: release
