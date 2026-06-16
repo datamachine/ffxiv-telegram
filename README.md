@@ -9,13 +9,13 @@ Maintained by Surye. Contact: `surye@datamachine.net`
 Custom repo URL:
 
 ```text
-https://datamachine.net/ffxiv-telegram/repo.json
+https://datamachine.net/ffxiv-plugins/pluginmaster.json
 ```
 
 1. Launch the game through XIVLauncher with Dalamud enabled.
-2. Open the Dalamud Plugin Installer with `/xlplugins`.
-3. Open the installer settings and find `Custom Plugin Repositories`.
-4. Add `https://datamachine.net/ffxiv-telegram/repo.json`.
+2. Open the Dalamud Plugin Installer (`/xlplugins`).
+3. Go to **Settings** → **Experimental** → **Custom Plugin Repositories**.
+4. Add `https://datamachine.net/ffxiv-plugins/pluginmaster.json`.
 5. Refresh the plugin list, search for `FFXIV Telegram`, and install it.
 
 ## Telegram Setup
